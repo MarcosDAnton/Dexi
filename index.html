@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dexi — Codex</title>
+  <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
+  <meta name="description" content="Codex de conhecimentos intuitivos, linguísticos e científicos.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gold: {
+              DEFAULT: '#c9a227',
+              light: '#f5e6a8',
+              glow: 'rgba(201, 162, 39, 0.25)',
+            },
+            ink: '#1e293b',
+            paper: '#f8f7f4',
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-paper text-ink min-h-screen overflow-hidden font-sans">
+
+  <input type="file" id="folder-selector" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelection(this.files)">
+
+  <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] h-screen w-screen">
+    
+    <aside class="bg-white/82 backdrop-blur-md p-6 border-r border-slate-400/25 flex flex-col justify-between h-full z-10 overflow-y-auto">
+      <div>
+        <div class="text-center mb-6">
+          <img src="Dexi.png" alt="DEXI" onerror="this.src='https://placehold.co/88x88?text=DEXI'" class="w-[88px] h-auto mx-auto drop-shadow-[0_8px_18px_rgba(201,162,39,0.25)]">
+          <h1 class="text-2xl font-extrabold tracking-wider mt-3 mb-0.5 text-slate-900">Dexi</h1>
+          <p class="text-[0.72rem] tracking-[0.18em] uppercase text-slate-500 m-0">Codex de Conhecimentos</p>
+        </div>
+
+        <button onclick="triggerFolderSelector()" class="w-full mb-6 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-xl shadow transition-all flex items-center justify-center gap-2 text-sm">
+          Sincronizar Dexi
+        </button>
+
+        <p class="text-[0.7rem] uppercase tracking-[0.14em] text-slate-400 mb-3 font-semibold">Notas</p>
+        <ul class="space-y-2 m-0 p-0 list-none">
+          <li>
+            <button onclick="filterCategory('Intuitios')" class="w-full text-left flex gap-3 items-start p-3 rounded-xl border border-transparent hover:bg-white hover:border-amber-500/35 hover:shadow-md transition-all duration-200 text-inherit group">
+              <span class="text-xl leading-none text-amber-600">✦</span>
+              <span>
+                <strong class="block text-[0.95rem]">Intuitios</strong>
+                <small class="block text-slate-500 text-[0.75rem]">Conhecimentos intuitivos</small>
+              </span>
+            </button>
+          </li>
+          <li>
+            <button onclick="filterCategory('Línguas')" class="w-full text-left flex gap-3 items-start p-3 rounded-xl border border-transparent hover:bg-white hover:border-emerald-500/35 hover:shadow-md transition-all duration-200 text-inherit group">
+              <span class="text-xl leading-none text-emerald-600">◈</span>
+              <span>
+                <strong class="block text-[0.95rem]">Línguas</strong>
+                <small class="block text-slate-500 text-[0.75rem]">Conhecimentos Linguísticos</small>
+              </span>
+            </button>
+          </li>
+          <li>
+            <button onclick="filterCategory('Scientias')" class="w-full text-left flex gap-3 items-start p-3 rounded-xl border border-transparent hover:bg-white hover:border-indigo-500/35 hover:shadow-md transition-all duration-200 text-inherit group">
+              <span class="text-xl leading-none text-indigo-600">◎</span>
+              <span>
+                <strong class="block text-[0.95rem]">Scientias</strong>
+                <small class="block text-slate-500 text-[0.75rem]">Conhecimentos Científicos</small>
+              </span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="text-[0.78rem] text-slate-500 leading-relaxed p-3.5 rounded-xl bg-slate-50/90 border border-dashed border-slate-400/35 mt-4">
+        <strong class="text-slate-700">Como usar nos Favoritos:</strong><br>
+        1. Clique em "Sincronizar Pasta Dexi" e selecione a sua pasta principal.<br>
+        2. Clique nas categorias para alternar a visualização dos cards!
+      </div>
+    </aside>
+
+    <main class="p-8 w-full h-screen overflow-auto relative select-none" id="canvas">
+      <div class="mb-10 p-6 rounded-2xl bg-gradient-to-br from-white to-amber-50/50 border border-gold/20 shadow-sm relative z-0" id="hero-area">
+        <h2 class="text-2xl lg:text-3xl font-bold mb-2">Codex Local</h2>
+        <p class="text-slate-600 max-w-[60ch] m-0">Sincronize sua pasta local acima para renderizar os arquivos dinamicamente de forma 100% offline ou arquivos de pasta em nuvem.</p>
+      </div>
+    </main>
+
+  </div>
+
+  <div id="preview-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div class="relative bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl">
+      <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+        <h3 id="modal-title" class="font-bold text-slate-800 truncate pr-4">Visualização</h3>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 font-bold text-xl px-2 transition-colors">&times;</button>
+      </div>
+      <div id="modal-content" class="p-2 flex-1 overflow-auto bg-slate-50 rounded-b-2xl min-h-[50vh]"></div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    let localizedFiles = []; // Guarda a referência dos arquivos carregados em memória
+
+    const folderConfig = {
+      'intuitios': { label: 'Intuitios', bg: 'bg-amber-100', text: 'text-amber-800' },
+      'linguas': { label: 'Línguas', bg: 'bg-emerald-100', text: 'text-emerald-800' },
+      'scientias': { label: 'Scientias', bg: 'bg-indigo-100', text: 'text-indigo-800' }
+    };
+
+    function triggerFolderSelector() {
+      document.getElementById('folder-selector').click();
+    }
+
+    // Processa a estrutura de arquivos locais carregados via input
+    function handleFolderSelection(files) {
+      localizedFiles = Array.from(files);
+      alert(`Sucesso! ${localizedFiles.length} arquivos carregados na sessão atual do Codex.`);
+    }
+
+    // Filtra e reconstrói os cards com base na categoria clicada
+    async function filterCategory(categoryName) {
+      document.querySelectorAll('.codex-card').forEach(card => card.remove());
+      
+      const targetFolderLower = categoryName.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const config = folderConfig[targetFolderLower];
+
+      // Busca os arquivos pertencentes à pasta selecionada na árvore local
+      const filteredFiles = localizedFiles.filter(file => {
+        const pathParts = file.webkitRelativePath.toLowerCase().split('/');
+        return pathParts.includes(targetFolderLower);
+      });
+
+      if (filteredFiles.length === 0) {
+        alert(`Nenhum arquivo encontrado para a pasta "${categoryName}". Lembre-se de sincronizar a pasta correta.`);
+        return;
+      }
+
+      for (const file of filteredFiles) {
+        const fileNameLower = file.name.toLowerCase();
+
+        // 1. Processar Arquivos de Texto/Markdown
+        if (fileNameLower.endsWith('.txt') || fileNameLower.endsWith('.md')) {
+          const text = await file.text();
+          const bodyHtml = `<div class="p-4 text-sm max-h-[220px] overflow-y-auto text-slate-700 font-mono bg-slate-50/50 rounded-b-2xl whitespace-pre-wrap">${escapeHTML(text)}</div>`;
+          createCard(config.label, file.name, bodyHtml, config.bg, config.text);
+        }
+        
+        // 2. Processar Imagens locais gerando URLs temporárias simbólicas
+        else if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileNameLower)) {
+          const fileURL = URL.createObjectURL(file);
+          const bodyHtml = `<div class="bg-slate-100 rounded-b-2xl overflow-hidden max-h-[250px] flex items-center justify-center cursor-pointer" onclick="openModal('${file.name}', '<img src=\\'${fileURL}\\' class=\\'max-w-full max-h-[75vh] mx-auto object-contain\\'>')">
+                              <img src="${fileURL}" alt="${file.name}" class="w-full h-auto object-contain max-h-[250px]">
+                            </div>`;
+          createCard(config.label, file.name, bodyHtml, config.bg, config.text, 320);
+        }
+
+        // 3. Processar PDFs locais gerando URLs temporárias simbólicas
+        else if (fileNameLower.endsWith('.pdf')) {
+          const fileURL = URL.createObjectURL(file);
+          const bodyHtml = `<div class="w-full h-[300px] bg-slate-100 rounded-b-2xl overflow-hidden relative group">
+                              <button onclick="openModal('${file.name}', '<iframe src=\\'${fileURL}\\' class=\\'w-full h-[75vh] border-none\\'></iframe>')" class="absolute top-2 right-2 bg-ink/80 hover:bg-ink text-white text-xs px-2 py-1 rounded-lg z-20 transition-all shadow-md opacity-90 lg:opacity-0 lg:group-hover:opacity-100">🔍 Expandir</button>
+                              <iframe src="${fileURL}" class="w-full h-full border-none"></iframe>
+                            </div>`;
+          createCard(config.label, file.name, bodyHtml, config.bg, config.text, 360);
+        }
+      }
+    }
+
+    function createCard(category, filename, bodyContent, bgClass, textClass, customWidth = 290) {
+      const card = document.createElement('div');
+      card.className = `codex-card absolute bg-white border border-slate-200 rounded-2xl shadow-lg cursor-move z-10 hover:shadow-xl transition-shadow duration-150`;
+      card.style.width = `${customWidth}px`;
+      card.dataset.category = category;
+
+      const startX = Math.random() * (canvas.clientWidth - (customWidth + 40)) + 20;
+      const startY = Math.random() * (canvas.clientHeight - 360) + 220; 
+
+      card.style.left = `${Math.max(20, startX)}px`;
+      card.style.top = `${Math.max(220, startY)}px`;
+
+      card.innerHTML = `
+        <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center font-bold text-xs">
+          <span class="px-2 py-1 rounded-md ${bgClass} ${textClass}">${category}</span>
+          <span class="text-slate-400 truncate ml-2 max-w-[150px]" title="${filename}">${filename}</span>
+        </div>
+        ${bodyContent}
+      `;
+
+      canvas.appendChild(card);
+      applyDragEvent(card);
+    }
+
+    function applyDragEvent(element) {
+      let xOffset = 0, yOffset = 0, initialX = 0, initialY = 0;
+      element.onmousedown = startDragging;
+
+      function startDragging(e) {
+        if (e.target.closest('.overflow-y-auto') || e.target.tagName === 'IFRAME' || e.target.tagName === 'BUTTON') return;
+        e.preventDefault();
+        initialX = e.clientX;
+        initialY = e.clientY;
+        document.onmouseup = stopDragging;
+        document.onmousemove = executeDrag;
+        document.querySelectorAll('.codex-card').forEach(c => c.style.zIndex = 10);
+        element.style.zIndex = 50;
+      }
+
+      function executeDrag(e) {
+        e.preventDefault();
+        xOffset = initialX - e.clientX;
+        yOffset = initialY - e.clientY;
+        initialX = e.clientX;
+        initialY = e.clientY;
+        element.style.top = (element.offsetTop - yOffset) + "px";
+        element.style.left = (element.offsetLeft - xOffset) + "px";
+      }
+
+      function stopDragging() {
+        document.onmouseup = null;
+        document.onmousemove = null;
+      }
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag));
+    }
+
+    function openModal(title, contentHtml) {
+      document.getElementById('modal-title').innerText = title;
+      document.getElementById('modal-content').innerHTML = contentHtml;
+      document.getElementById('preview-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('preview-modal').classList.add('hidden');
+      document.getElementById('modal-content').innerHTML = '';
+    }
+
+    document.getElementById('preview-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+  </script>
+</body>
+</html>
