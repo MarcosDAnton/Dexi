@@ -6,6 +6,7 @@
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
   <meta name="description" content="Codex de conhecimentos intuitivos, linguísticos e científicos.">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -26,14 +27,30 @@
       }
     }
   </script>
+  <style>
+    /* Ajuste para cross-browser do handle de resize visual */
+    .resize-handle {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 16px;
+      height: 16px;
+      cursor: nwse-resize;
+      background: linear-gradient(135deg, transparent 50%, rgba(100,116,139,0.4) 50%);
+      border-bottom-right-radius: 1rem;
+    }
+    .dark .resize-handle {
+      background: linear-gradient(135deg, transparent 50%, rgba(148,163,184,0.4) 50%);
+    }
+  </style>
 </head>
-<body class="bg-[#f8f7f4] dark:bg-[#0f172a] text-[#1e293b] dark:text-[#f8f7f4] min-h-screen overflow-hidden font-sans transition-colors duration-200">
+<body class="bg-[#f8f7f4] dark:bg-[#0f172a] text-[#1e293b] dark:text-[#f8f7f4] min-h-screen lg:overflow-hidden font-sans transition-colors duration-200">
 
   <input type="file" id="folder-selector" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelection(this.files)">
 
-  <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] h-screen w-screen">
+  <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] min-h-screen lg:h-screen w-screen">
     
-    <aside class="bg-white/90 dark:bg-slate-900/80 backdrop-blur-md p-6 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between h-full z-20 overflow-y-auto transition-colors duration-200">
+    <aside class="bg-white/90 dark:bg-slate-900/80 backdrop-blur-md p-6 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between z-20 overflow-y-auto transition-colors duration-200">
       <div>
         <div class="flex justify-end mb-2">
           <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all text-slate-700 dark:text-slate-300 flex items-center justify-center text-sm font-medium gap-2" title="Alternar Tema">
@@ -103,14 +120,8 @@
       </div>
     </aside>
 
-    <div class="w-full h-screen overflow-auto bg-grid-light dark:bg-grid-dark transition-all duration-200 relative" style="background-size: 32px 32px;">
-      
-      <div class="absolute top-8 left-8 right-8 max-w-[calc(100vw-340px)] p-6 rounded-2xl bg-gradient-to-br from-white to-amber-50/50 dark:from-slate-900 dark:to-slate-800/80 border border-gold/20 dark:border-slate-700 shadow-sm z-0 pointer-events-none transition-all duration-200" id="hero-area">
-        <h2 class="text-2xl lg:text-3xl font-bold mb-2 text-slate-900 dark:text-white">Codex</h2>
-        <p class="text-slate-600 dark:text-slate-400 max-w-[60ch] m-0">Solte arquivos das suas notas e fontes diversas aqui como cards flutuantes. Você pode arrastá-los livremente pela grade.</p>
-      </div>
-
-      <main class="p-8 pt-44 relative select-none min-w-full min-h-full" id="canvas">
+    <div class="w-full h-[70vh] lg:h-screen overflow-auto bg-grid-light dark:bg-grid-dark transition-all duration-200 relative" style="background-size: 32px 32px;">
+      <main class="p-4 relative select-none min-w-full min-h-full" id="canvas">
       </main>
     </div>
 
@@ -158,7 +169,6 @@
 
     async function handleFolderSelection(files) {
       localizedFiles = Array.from(files);
-      
       if(localizedFiles.length === 0) return;
 
       for (const file of localizedFiles) {
@@ -175,7 +185,6 @@
         const config = folderConfig[matchedCategory];
         await processAndCreateCard(file, config);
       }
-
       mostrarTodosOsCards();
     }
 
@@ -210,7 +219,6 @@
         bodyHtml = `<div class="p-4 text-sm h-full overflow-y-auto text-slate-700 dark:text-slate-300 font-mono bg-slate-50/50 dark:bg-slate-950/50 whitespace-pre-wrap">${escapeHTML(text)}</div>`;
         createCard(config.label, file.name, bodyHtml, config.bg, config.text, config.border);
       }
-      
       else if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileNameLower)) {
         bodyHtml = await new Promise((resolve) => {
           const reader = new FileReader();
@@ -223,7 +231,6 @@
         });
         createCard(config.label, file.name, bodyHtml, config.bg, config.text, config.border, 320);
       }
-
       else if (fileNameLower.endsWith('.pdf')) {
         const fileURL = URL.createObjectURL(file);
         bodyHtml = `<div class="w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden relative group">
@@ -232,7 +239,6 @@
                     </div>`;
         createCard(config.label, file.name, bodyHtml, config.bg, config.text, config.border, 360);
       }
-
       else {
         bodyHtml = `<div class="p-5 text-center bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-center items-center">
                       <p class="text-xs text-slate-400 mb-2">Arquivo carregado na sessão.</p>
@@ -266,9 +272,10 @@
       document.querySelectorAll('.codex-card').forEach(card => card.style.display = 'flex');
     }
 
-    function createCard(category, filename, bodyContent, bgClass, textClass, borderClass, customWidth = 290, savedProps = null) {
+    function createCard(category, filename, bodyContent, bgClass, textClass, borderClass, customWidth = 280, savedProps = null) {
       const card = document.createElement('div');
-      card.className = `codex-card absolute bg-white dark:bg-slate-900 border ${borderClass} rounded-2xl shadow-lg dark:shadow-2xl cursor-move z-10 hover:border-slate-400 dark:hover:border-slate-600 resize overflow-hidden flex flex-col`;
+      // Adicionado transform-none para o Interact.js gerenciar as posições sem conflito do Tailwind
+      card.className = `codex-card absolute bg-white dark:bg-slate-900 border ${borderClass} rounded-2xl shadow-lg dark:shadow-2xl z-10 hover:border-slate-400 dark:hover:border-slate-600 overflow-hidden flex flex-col transform-none touch-none`;
       
       card.dataset.category = category;
       card.dataset.filename = filename;
@@ -276,27 +283,35 @@
       card.dataset.textClass = textClass;
       card.dataset.borderClass = borderClass;
 
+      // Responsividade de tamanho inicial baseado no tamanho do visor
+      const viewportWidth = window.innerWidth;
+      const finalWidth = viewportWidth < 640 ? Math.min(customWidth, viewportWidth - 40) : customWidth;
+
       if (savedProps) {
         card.style.width = savedProps.width;
         card.style.height = savedProps.height;
         card.style.left = savedProps.left;
         card.style.top = savedProps.top;
       } else {
-        card.style.width = `${customWidth}px`;
-        card.style.height = `300px`;
+        card.style.width = `${finalWidth}px`;
+        card.style.height = `260px`;
         const scrollContainer = canvas.parentElement;
-        const startX = scrollContainer.scrollLeft + Math.random() * (scrollContainer.clientWidth - (customWidth + 40)) + 20;
-        const startY = scrollContainer.scrollTop + Math.random() * (scrollContainer.clientHeight - 360) + 220; 
-        card.style.left = `${Math.max(20, startX)}px`;
-        card.style.top = `${Math.max(220, startY)}px`;
+        
+        // Evita que cards nasçam fora da tela em celulares pequenos
+        const maxSpawnX = Math.max(10, scrollContainer.clientWidth - (finalWidth + 30));
+        const startX = scrollContainer.scrollLeft + Math.random() * maxSpawnX + 10;
+        const startY = scrollContainer.scrollTop + Math.random() * 60 + 20; 
+        
+        card.style.left = `${Math.max(10, startX)}px`;
+        card.style.top = `${Math.max(20, startY)}px`;
       }
       
-      card.style.minWidth = `220px`;
-      card.style.minHeight = `150px`;
+      card.style.minWidth = `200px`;
+      card.style.minHeight = `140px`;
 
       card.innerHTML = `
-        <div class="px-4 py-3 border-b border-slate-100 dark:border-slate-800/60 flex justify-between items-center font-bold text-xs rounded-t-2xl select-none shrink-0">
-          <div class="flex items-center gap-2 truncate max-w-[85%]">
+        <div class="card-header px-4 py-3 border-b border-slate-100 dark:border-slate-800/60 flex justify-between items-center font-bold text-xs rounded-t-2xl select-none shrink-0 cursor-move">
+          <div class="flex items-center gap-2 truncate max-w-[85%] pointer-events-none">
             <span class="px-2 py-0.5 rounded-md ${bgClass} ${textClass} text-[10px] tracking-wide uppercase shrink-0">${category}</span>
             <span class="text-slate-400 dark:text-slate-500 truncate" title="${filename}">${filename}</span>
           </div>
@@ -305,10 +320,11 @@
         <div class="flex-1 overflow-hidden rounded-b-2xl card-body-holder">
           ${bodyContent}
         </div>
+        <div class="resize-handle"></div>
       `;
 
       canvas.appendChild(card);
-      applyDragEvent(card);
+      applyInteract(card);
       atualizarTamanhoQuadro();
       
       if (!savedProps) salvarEstadoNoStorage();
@@ -323,49 +339,76 @@
       }
     }
 
-    function applyDragEvent(element) {
-      element.onmousedown = startDragging;
+    // --- NOVA LOGICA DE DRAG & RESIZE (INTERACT.JS) COMPATIVEL COM MOUSE E TOQUE ---
+    function applyInteract(element) {
+      interact(element)
+        .draggable({
+          allowFrom: '.card-header', // Só arrasta segurando pelo cabeçalho
+          inertia: false,
+          modifiers: [
+            interact.modifiers.restrictRect({
+              restriction: 'parent',
+              endOnly: true
+            })
+          ],
+          listeners: {
+            start(event) {
+              document.querySelectorAll('.codex-card').forEach(c => c.style.zIndex = 10);
+              event.target.style.zIndex = 50;
+            },
+            move(event) {
+              const target = event.target;
+              // Pega a posição acumulada atual ou inicia em zero
+              const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
+              const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
 
-      function startDragging(e) {
-        if (e.target.closest('.overflow-y-auto') || e.target.tagName === 'IFRAME' || e.target.tagName === 'BUTTON') return;
-        
-        const rect = element.getBoundingClientRect();
-        if (e.clientX > rect.right - 16 && e.clientY > rect.bottom - 16) return;
+              // Aplica a transição usando left/top tradicionais para manter compatibilidade com seu sistema de salvamento
+              const currentLeft = parseFloat(target.style.left) || 0;
+              const currentTop = parseFloat(target.style.top) || 0;
 
-        e.preventDefault();
-        element.classList.remove('transition-all');
+              target.style.left = `${currentLeft + event.dx}px`;
+              target.style.top = `${currentTop + event.dy}px`;
 
-        document.onmouseup = stopDragging;
-        document.onmousemove = executeDrag;
-        
-        document.querySelectorAll('.codex-card').forEach(c => c.style.zIndex = 10);
-        element.style.zIndex = 50;
-      }
+              atualizarTamanhoQuadro();
+            },
+            end(event) {
+              salvarEstadoNoStorage();
+            }
+          }
+        })
+        .resizable({
+          edges: { right: true, bottom: true }, // Redimensiona puxando pelas bordas direita e inferior (ou pelo handle visual)
+          listeners: {
+            move(event) {
+              const target = event.target;
+              let width = event.rect.width;
+              let height = event.rect.height;
 
-      function executeDrag(e) {
-        e.preventDefault();
-        const novaTop = Math.max(0, element.offsetTop + e.movementY);
-        const novaLeft = Math.max(0, element.offsetLeft + e.movementX);
-        element.style.top = novaTop + "px";
-        element.style.left = novaLeft + "px";
-      }
+              target.style.width = `${width}px`;
+              target.style.height = `${height}px`;
 
-      function stopDragging() {
-        document.onmouseup = null;
-        document.onmousemove = null;
-        atualizarTamanhoQuadro();
-        salvarEstadoNoStorage();
-      }
+              atualizarTamanhoQuadro();
+            },
+            end(event) {
+              salvarEstadoNoStorage();
+            }
+          },
+          modifiers: [
+            interact.modifiers.restrictSize({
+              min: { width: 200, height: 140 }
+            })
+          ]
+        });
     }
 
     function atualizarTamanhoQuadro() {
       const cards = document.querySelectorAll('.codex-card');
-      let maxRight = window.innerWidth - 280;
+      let maxRight = window.innerWidth > 1024 ? window.innerWidth - 280 : window.innerWidth;
       let maxBottom = window.innerHeight;
 
       cards.forEach(card => {
-        const rightPos = card.offsetLeft + card.offsetWidth + 100;
-        const bottomPos = card.offsetTop + card.offsetHeight + 100;
+        const rightPos = card.offsetLeft + card.offsetWidth + 60;
+        const bottomPos = card.offsetTop + card.offsetHeight + 60;
         if (rightPos > maxRight) maxRight = rightPos;
         if (bottomPos > maxBottom) maxBottom = bottomPos;
       });
@@ -400,7 +443,7 @@
       try {
         const cardsData = JSON.parse(rawData);
         cardsData.forEach(c => {
-          createCard(c.category, c.filename, c.bodyContent, c.bgClass, c.textClass, c.borderClass, 290, {
+          createCard(c.category, c.filename, c.bodyContent, c.bgClass, c.textClass, c.borderClass, 280, {
             width: c.width,
             height: c.height,
             left: c.left,
@@ -437,13 +480,7 @@
       if (e.target === this) closeModal();
     });
 
-    window.addEventListener('mouseup', () => {
-      if(document.querySelectorAll('.codex-card').length > 0) {
-        atualizarTamanhoQuadro();
-        salvarEstadoNoStorage();
-      }
-    });
-
+    window.addEventListener('resize', atualizarTamanhoQuadro);
     document.addEventListener('DOMContentLoaded', carregarEstadoDoStorage);
   </script>
 </body>
