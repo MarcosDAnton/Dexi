@@ -2,7 +2,7 @@
 <html lang="pt-BR" class="dark"> <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dexi — Codex</title>
+  <title>Dexi</title>
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
   <meta name="description" content="Codex de conhecimentos intuitivos, linguísticos e científicos.">
   <script src="https://cdn.tailwindcss.com"></script>
@@ -27,8 +27,21 @@
       }
     }
   </script>
+
   <style>
-    /* Ajuste para cross-browser do handle de resize visual */
+    /* Oculta completamente as scrollbars em todos os navegadores */
+    ::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+    html, body {
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+      overflow: hidden !important;
+    }
+
+    /* Ajuste do handle de resize visual */
     .resize-handle {
       position: absolute;
       right: 0;
@@ -42,18 +55,55 @@
     .dark .resize-handle {
       background: linear-gradient(135deg, transparent 50%, rgba(148,163,184,0.4) 50%);
     }
+
+    .codex-card {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .dragging-active iframe {
+      pointer-events: none !important;
+    }
+    aside {
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Estilo do container invisível para permitir o pan infinito */
+    #board-wrapper {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      position: relative;
+      cursor: grab;
+    }
+    #board-wrapper:active {
+      cursor: grabbing;
+    }
+    /* O canvas real que se move */
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 5000px;  /* Tamanho virtual gigante para navegação livre */
+      height: 5000px;
+      transform-origin: 0 0;
+    }
   </style>
 </head>
-<body class="bg-[#f8f7f4] dark:bg-[#0f172a] text-[#1e293b] dark:text-[#f8f7f4] min-h-screen lg:overflow-hidden font-sans transition-colors duration-200">
+<body class="bg-[#f8f7f4] dark:bg-[#0f172a] text-[#1e293b] dark:text-[#f8f7f4] min-h-screen overflow-hidden font-sans transition-colors duration-200 relative">
 
   <input type="file" id="folder-selector" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelection(this.files)">
 
-  <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] min-h-screen lg:h-screen w-screen">
+  <button id="trigger-left" onclick="toggleMenu(true)" class="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-r-xl shadow-lg transition-all font-bold hidden">></button>
+
+  <div class="flex h-screen w-screen relative overflow-hidden">
     
-    <aside class="bg-white/90 dark:bg-slate-900/80 backdrop-blur-md p-6 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between z-20 overflow-y-auto transition-colors duration-200">
+    <aside id="sidebar" class="fixed top-0 left-0 h-full w-[280px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-6 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between z-50 overflow-y-auto transition-colors duration-200 shadow-2xl transform none">
       <div>
-        <div class="flex justify-end mb-2">
-          <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all text-slate-700 dark:text-slate-300 flex items-center justify-center text-sm font-medium gap-2" title="Alternar Tema">
+        <div class="flex justify-between items-center mb-2">
+          <button onclick="toggleMenu(false)" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-500/20 hover:text-rose-500 transition-all text-slate-500 text-xs font-bold">
+            <
+          </button>
+          <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all text-slate-700 dark:text-slate-300 flex items-center justify-center text-sm font-medium">
             <span id="theme-icon-sun" class="hidden dark:inline">☀️</span>
             <span id="theme-icon-moon" class="inline dark:hidden">🌙</span>
           </button>
@@ -62,67 +112,35 @@
         <div class="text-center mb-6">
           <img src="Dexi.png" alt="DEXI" onerror="this.src='https://placehold.co/88x88?text=DEXI'" class="w-[88px] h-auto mx-auto drop-shadow-[0_8px_18px_rgba(201,162,39,0.25)]">
           <h1 class="text-2xl font-extrabold tracking-wider mt-3 mb-0.5 text-slate-900 dark:text-white">Dexi</h1>
-          <p class="text-[0.72rem] tracking-[0.18em] uppercase text-slate-500 dark:text-slate-400 m-0">Codex de Conhecimentos</p>
+          <p class="text-[0.72rem] tracking-[0.18em] uppercase text-slate-500 dark:text-slate-400 m-0">Codex</p>
         </div>
 
         <button onclick="triggerFolderSelector()" class="w-full mb-6 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-xl shadow transition-all flex items-center justify-center gap-2 text-sm">
           Sincronizar
         </button>
 
-        <div class="flex gap-2 mb-4">
-          <button onclick="mostrarTodosOsCards()" class="w-1/2 bg-slate-500/10 hover:bg-slate-500/20 text-slate-600 dark:text-slate-300 font-medium py-1.5 px-3 rounded-lg border border-slate-500/20 transition-all text-xs text-center">
-            👁️
-          </button>
-          <button onclick="limparQuadro()" class="w-1/2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium py-1.5 px-3 rounded-lg border border-rose-500/20 transition-all text-xs text-center">
-            🗑️
+        <div class="mb-4">
+          <button onclick="limparQuadro()" class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium py-2 px-4 rounded-xl border border-rose-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">
+            Limpar
           </button>
         </div>
-
-        <p class="text-[0.7rem] uppercase tracking-[0.14em] text-slate-400 dark:text-slate-500 mb-3 font-semibold">Filtro de Arquivos</p>
-        <ul class="space-y-2 m-0 p-0 list-none">
-          <li>
-            <button onclick="filterCategory('Intuitios')" class="w-full text-left flex gap-3 items-start p-3 rounded-xl border border-transparent hover:bg-white dark:hover:bg-slate-800/60 hover:border-amber-500/35 hover:shadow-md transition-all duration-200 text-inherit group">
-              <span class="text-xl leading-none text-amber-600 dark:text-amber-500">✦</span>
-              <span>
-                <strong class="block text-[0.95rem] text-slate-800 dark:text-slate-200">Intuitios</strong>
-                <small class="block text-slate-500 dark:text-slate-400 text-[0.75rem]">Conhecimentos intuitivos</small>
-              </span>
-            </button>
-          </li>
-          <li>
-            <button onclick="filterCategory('Linguas')" class="w-full text-left flex gap-3 items-start p-3 rounded-xl border border-transparent hover:bg-white dark:hover:bg-slate-800/60 hover:border-emerald-500/35 hover:shadow-md transition-all duration-200 text-inherit group">
-              <span class="text-xl leading-none text-emerald-600 dark:text-emerald-500">◈</span>
-              <span>
-                <strong class="block text-[0.95rem] text-slate-800 dark:text-slate-200">Linguas</strong>
-                <small class="block text-slate-500 dark:text-slate-400 text-[0.75rem]">Conhecimentos Linguísticos</small>
-              </span>
-            </button>
-          </li>
-          <li>
-            <button onclick="filterCategory('Scientias')" class="w-full text-left flex gap-3 items-start p-3 rounded-xl border border-transparent hover:bg-white dark:hover:bg-slate-800/60 hover:border-indigo-500/35 hover:shadow-md transition-all duration-200 text-inherit group">
-              <span class="text-xl leading-none text-indigo-600 dark:text-indigo-500">◎</span>
-              <span>
-                <strong class="block text-[0.95rem] text-slate-800 dark:text-slate-200">Scientias</strong>
-                <small class="block text-slate-500 dark:text-slate-400 text-[0.75rem]">Conhecimentos Científicos</small>
-              </span>
-            </button>
-          </li>
-        </ul>
       </div>
 
       <div class="text-[0.78rem] text-slate-500 dark:text-slate-400 leading-relaxed p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-300 dark:border-slate-700 mt-4">
         <strong class="text-slate-700 dark:text-slate-200">Como usar:</strong><br>
-        1. Arraste arquivos diretamente para a grade quadriculada;<br>
+        1. Clique/toque no fundo vazio e arraste para se movimentar pelo quadro em qualquer direção;<br>
         <br>
-        2. Clique em "<b>Sincronizar</b>"" para mapear a pasta local "Dexi" com filtros de notas "Intuitios", "Linguas", "Scientias" ou qualquer outra pasta e arquivo sem filtros como fontes<br>
+        2. Arraste arquivos diretamente para a grade para criar novos cards;<br>
         <br>
-        3. Clique nos Filtros de Notas para ver apenas daquele tipo de arquivo. Clique em <b>"👁️"</b> para resetar o filtro e "🗑️" para limpar o quadro.
+        3. Use a barra para "Sincronizar" pastas e arquivos no quadro em cards ou "Limpar" para apagar o quadro;
       </div>
     </aside>
 
-    <div class="w-full h-[70vh] lg:h-screen overflow-auto bg-grid-light dark:bg-grid-dark transition-all duration-200 relative" style="background-size: 32px 32px;">
-      <main class="p-4 relative select-none min-w-full min-h-full" id="canvas">
-      </main>
+    <div id="board-wrapper" class="bg-grid-light dark:bg-grid-dark transition-all duration-200" style="background-size: 32px 32px;">
+      <div id="canvas-container">
+        <main class="w-full h-full relative select-none" id="canvas">
+        </main>
+      </div>
     </div>
 
   </div>
@@ -139,14 +157,73 @@
 
   <script>
     const canvas = document.getElementById('canvas');
+    const boardWrapper = document.getElementById('board-wrapper');
+    const canvasContainer = document.getElementById('canvas-container');
     let localizedFiles = [];
 
-    const folderConfig = {
-      'intuitios': { label: 'Intuitios', bg: 'bg-amber-100 dark:bg-amber-950/80', text: 'text-amber-800 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-500/30' },
-      'linguas': { label: 'Linguas', bg: 'bg-emerald-100 dark:bg-emerald-950/80', text: 'text-emerald-800 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-500/30' },
-      'scientias': { label: 'Scientias', bg: 'bg-indigo-100 dark:bg-indigo-950/80', text: 'text-indigo-800 dark:text-indigo-400', border: 'border-indigo-200 dark:border-indigo-500/30' },
-      'desconhecido': { label: 'Arquivo', bg: 'bg-slate-100 dark:bg-slate-800', text: 'text-slate-700 dark:text-slate-300', border: 'border-slate-200 dark:border-slate-600' }
-    };
+    // --- VARIÁVEIS DO MECANISMO DE PAN (Navegação pelo Quadro) ---
+    let isPanning = false;
+    let startX = 0, startY = 0;
+    let panX = 0, panY = 0;
+
+    function startPan(e) {
+      if (e.target.closest('.codex-card') || e.target.closest('aside') || e.target.closest('button')) return;
+      
+      isPanning = true;
+      const pageX = e.pageX || e.touches[0].pageX;
+      const pageY = e.pageY || e.touches[0].pageY;
+      
+      startX = pageX - panX;
+      startY = pageY - panY;
+    }
+
+    function doPan(e) {
+      if (!isPanning) return;
+      e.preventDefault();
+      
+      const pageX = e.pageX || (e.touches ? e.touches[0].pageX : null);
+      const pageY = e.pageY || (e.touches ? e.touches[0].pageY : null);
+      
+      if (pageX === null || pageY === null) return;
+
+      panX = pageX - startX;
+      panY = pageY - startY;
+
+      if(panX > 0) panX = 0;
+      if(panY > 0) panY = 0;
+
+      canvasContainer.style.transform = `translate(${panX}px, ${panY}px)`;
+      boardWrapper.style.backgroundPosition = `${panX}px ${panY}px`;
+    }
+
+    function endPan() {
+      isPanning = false;
+    }
+
+    boardWrapper.addEventListener('mousedown', startPan);
+    window.addEventListener('mousemove', doPan);
+    window.addEventListener('mouseup', endPan);
+
+    boardWrapper.addEventListener('touchstart', startPan, { passive: false });
+    window.addEventListener('touchmove', doPan, { passive: false });
+    window.addEventListener('touchend', endPan);
+
+
+    // --- CONTROLE DE EXIBIÇÃO DO MENU LATERAL ---
+    function toggleMenu(show) {
+      const sidebar = document.getElementById('sidebar');
+      const triggerLeft = document.getElementById('trigger-left');
+
+      if (show) {
+        sidebar.style.transform = 'translateX(0)';
+        triggerLeft.classList.add('hidden');
+        localStorage.setItem('dexi_menu_visible', 'true');
+      } else {
+        sidebar.style.transform = 'translateX(-285px)';
+        triggerLeft.classList.remove('hidden');
+        localStorage.setItem('dexi_menu_visible', 'false');
+      }
+    }
 
     function toggleTheme() {
       const html = document.documentElement;
@@ -172,24 +249,12 @@
       if(localizedFiles.length === 0) return;
 
       for (const file of localizedFiles) {
-        const pathParts = file.webkitRelativePath.toLowerCase().split('/');
-        let matchedCategory = 'desconhecido';
-
-        for (const category of Object.keys(folderConfig)) {
-          if (pathParts.includes(category)) {
-            matchedCategory = category;
-            break;
-          }
-        }
-
-        const config = folderConfig[matchedCategory];
-        await processAndCreateCard(file, config);
+        await processAndCreateCard(file);
       }
-      mostrarTodosOsCards();
     }
 
-    // --- DRAG & DROP DO CANVAS ---
-    const dropZone = canvas.parentElement;
+    // --- DRAG & DROP DE ARQUIVOS EXTERNOS ---
+    const dropZone = boardWrapper;
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
       dropZone.addEventListener(eventName, e => e.preventDefault(), false);
     });
@@ -210,14 +275,15 @@
       }
     });
 
-    async function processAndCreateCard(file, config = folderConfig['desconhecido']) {
+    async function processAndCreateCard(file) {
       const fileNameLower = file.name.toLowerCase();
+      const extension = file.name.includes('.') ? file.name.split('.').pop().toUpperCase() : 'ARQUIVO';
       let bodyHtml = '';
 
       if (fileNameLower.endsWith('.txt') || fileNameLower.endsWith('.md')) {
         const text = await file.text();
         bodyHtml = `<div class="p-4 text-sm h-full overflow-y-auto text-slate-700 dark:text-slate-300 font-mono bg-slate-50/50 dark:bg-slate-950/50 whitespace-pre-wrap">${escapeHTML(text)}</div>`;
-        createCard(config.label, file.name, bodyHtml, config.bg, config.text, config.border);
+        createCard(extension, file.name, bodyHtml);
       }
       else if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(fileNameLower)) {
         bodyHtml = await new Promise((resolve) => {
@@ -229,7 +295,7 @@
           };
           reader.readAsDataURL(file);
         });
-        createCard(config.label, file.name, bodyHtml, config.bg, config.text, config.border, 320);
+        createCard(extension, file.name, bodyHtml, 320);
       }
       else if (fileNameLower.endsWith('.pdf')) {
         const fileURL = URL.createObjectURL(file);
@@ -237,55 +303,26 @@
                       <button onclick="openModal('${file.name}', '<iframe src=\\'${fileURL}\\' class=\\'w-full h-[75vh] border-none\\'></iframe>')" class="absolute top-2 right-2 bg-slate-800 dark:bg-slate-900 text-white text-xs px-2 py-1 rounded-lg z-20 transition-all shadow-md">🔍 Expandir</button>
                       <iframe src="${fileURL}" class="w-full h-full border-none"></iframe>
                     </div>`;
-        createCard(config.label, file.name, bodyHtml, config.bg, config.text, config.border, 360);
+        createCard(extension, file.name, bodyHtml, 360);
       }
       else {
         bodyHtml = `<div class="p-5 text-center bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-center items-center">
                       <p class="text-xs text-slate-400 mb-2">Arquivo carregado na sessão.</p>
-                      <span class="text-xs font-mono text-amber-600 dark:text-amber-500 bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">${file.type || 'Binary/Data'}</span>
+                      <span class="text-xs font-mono text-slate-600 dark:text-slate-400 bg-slate-500/10 px-2 py-1 rounded border border-slate-500/20">${file.type || 'Binary/Data'}</span>
                     </div>`;
-        createCard(config.label || 'Arquivo', file.name, bodyHtml, config.bg, config.text, config.border, 260);
+        createCard(extension, file.name, bodyHtml, 260);
       }
     }
 
-    function filterCategory(categoryName) {
-      const targetCategory = categoryName.toLowerCase().trim();
-      const cards = document.querySelectorAll('.codex-card');
-      let encontrou = false;
-
-      cards.forEach(card => {
-        const cardCategory = card.dataset.category.toLowerCase().trim();
-        if (cardCategory === targetCategory) {
-          card.style.display = 'flex';
-          encontrou = true;
-        } else {
-          card.style.display = 'none';
-        }
-      });
-
-      if (!encontrou && cards.length > 0) {
-        mostrarTodosOsCards();
-      }
-    }
-
-    function mostrarTodosOsCards() {
-      document.querySelectorAll('.codex-card').forEach(card => card.style.display = 'flex');
-    }
-
-    function createCard(category, filename, bodyContent, bgClass, textClass, borderClass, customWidth = 280, savedProps = null) {
+    function createCard(fileType, filename, bodyContent, customWidth = 280, savedProps = null) {
       const card = document.createElement('div');
-      // Adicionado transform-none para o Interact.js gerenciar as posições sem conflito do Tailwind
-      card.className = `codex-card absolute bg-white dark:bg-slate-900 border ${borderClass} rounded-2xl shadow-lg dark:shadow-2xl z-10 hover:border-slate-400 dark:hover:border-slate-600 overflow-hidden flex flex-col transform-none touch-none`;
+      card.className = `codex-card absolute bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg dark:shadow-2xl z-10 hover:border-slate-400 dark:hover:border-slate-600 overflow-hidden flex flex-col transform-none touch-none`;
       
-      card.dataset.category = category;
+      card.dataset.filetype = fileType;
       card.dataset.filename = filename;
-      card.dataset.bgClass = bgClass;
-      card.dataset.textClass = textClass;
-      card.dataset.borderClass = borderClass;
 
-      // Responsividade de tamanho inicial baseado no tamanho do visor
-      const viewportWidth = window.innerWidth;
-      const finalWidth = viewportWidth < 640 ? Math.min(customWidth, viewportWidth - 40) : customWidth;
+      const finalWidth = customWidth;
+      const finalHeight = 260;
 
       if (savedProps) {
         card.style.width = savedProps.width;
@@ -294,16 +331,21 @@
         card.style.top = savedProps.top;
       } else {
         card.style.width = `${finalWidth}px`;
-        card.style.height = `260px`;
-        const scrollContainer = canvas.parentElement;
+        card.style.height = `${finalHeight}px`;
         
-        // Evita que cards nasçam fora da tela em celulares pequenos
-        const maxSpawnX = Math.max(10, scrollContainer.clientWidth - (finalWidth + 30));
-        const startX = scrollContainer.scrollLeft + Math.random() * maxSpawnX + 10;
-        const startY = scrollContainer.scrollTop + Math.random() * 60 + 20; 
+        const totalCards = document.querySelectorAll('.codex-card').length;
+        const spacingX = 24; 
+        const spacingY = 24; 
         
-        card.style.left = `${Math.max(10, startX)}px`;
-        card.style.top = `${Math.max(20, startY)}px`;
+        const cardsPerLine = Math.floor(1200 / (finalWidth + spacingX));
+        const col = totalCards % cardsPerLine;
+        const row = Math.floor(totalCards / cardsPerLine);
+        
+        const startX = Math.abs(panX) + 320 + col * (finalWidth + spacingX);
+        const startY = Math.abs(panY) + 60 + row * (finalHeight + spacingY);
+        
+        card.style.left = `${startX}px`;
+        card.style.top = `${startY}px`;
       }
       
       card.style.minWidth = `200px`;
@@ -312,7 +354,7 @@
       card.innerHTML = `
         <div class="card-header px-4 py-3 border-b border-slate-100 dark:border-slate-800/60 flex justify-between items-center font-bold text-xs rounded-t-2xl select-none shrink-0 cursor-move">
           <div class="flex items-center gap-2 truncate max-w-[85%] pointer-events-none">
-            <span class="px-2 py-0.5 rounded-md ${bgClass} ${textClass} text-[10px] tracking-wide uppercase shrink-0">${category}</span>
+            <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] tracking-wide uppercase shrink-0">${fileType}</span>
             <span class="text-slate-400 dark:text-slate-500 truncate" title="${filename}">${filename}</span>
           </div>
           <button onclick="excluirCard(this)" class="text-slate-400 hover:text-rose-500 font-bold text-sm px-1.5 py-0.5 rounded transition-colors" title="Excluir Card">&times;</button>
@@ -325,7 +367,6 @@
 
       canvas.appendChild(card);
       applyInteract(card);
-      atualizarTamanhoQuadro();
       
       if (!savedProps) salvarEstadoNoStorage();
     }
@@ -334,62 +375,54 @@
       const card = button.closest('.codex-card');
       if (card) {
         card.remove();
-        atualizarTamanhoQuadro();
         salvarEstadoNoStorage();
       }
     }
 
-    // --- NOVA LOGICA DE DRAG & RESIZE (INTERACT.JS) COMPATIVEL COM MOUSE E TOQUE ---
     function applyInteract(element) {
       interact(element)
         .draggable({
-          allowFrom: '.card-header', // Só arrasta segurando pelo cabeçalho
+          allowFrom: '.card-header',
           inertia: false,
           modifiers: [
             interact.modifiers.restrictRect({
               restriction: 'parent',
-              endOnly: true
+              endOnly: false
             })
           ],
           listeners: {
             start(event) {
               document.querySelectorAll('.codex-card').forEach(c => c.style.zIndex = 10);
               event.target.style.zIndex = 50;
+              document.body.classList.add('dragging-active');
             },
             move(event) {
               const target = event.target;
-              // Pega a posição acumulada atual ou inicia em zero
-              const x = (parseFloat(target.getAttribute('data-x')) || 0) + event.dx;
-              const y = (parseFloat(target.getAttribute('data-y')) || 0) + event.dy;
-
-              // Aplica a transição usando left/top tradicionais para manter compatibilidade com seu sistema de salvamento
               const currentLeft = parseFloat(target.style.left) || 0;
               const currentTop = parseFloat(target.style.top) || 0;
 
               target.style.left = `${currentLeft + event.dx}px`;
               target.style.top = `${currentTop + event.dy}px`;
-
-              atualizarTamanhoQuadro();
             },
             end(event) {
+              document.body.classList.remove('dragging-active');
               salvarEstadoNoStorage();
             }
           }
         })
         .resizable({
-          edges: { right: true, bottom: true }, // Redimensiona puxando pelas bordas direita e inferior (ou pelo handle visual)
+          edges: { right: true, bottom: true },
           listeners: {
+            start() {
+              document.body.classList.add('dragging-active');
+            },
             move(event) {
               const target = event.target;
-              let width = event.rect.width;
-              let height = event.rect.height;
-
-              target.style.width = `${width}px`;
-              target.style.height = `${height}px`;
-
-              atualizarTamanhoQuadro();
+              target.style.width = `${event.rect.width}px`;
+              target.style.height = `${event.rect.height}px`;
             },
             end(event) {
+              document.body.classList.remove('dragging-active');
               salvarEstadoNoStorage();
             }
           },
@@ -401,32 +434,12 @@
         });
     }
 
-    function atualizarTamanhoQuadro() {
-      const cards = document.querySelectorAll('.codex-card');
-      let maxRight = window.innerWidth > 1024 ? window.innerWidth - 280 : window.innerWidth;
-      let maxBottom = window.innerHeight;
-
-      cards.forEach(card => {
-        const rightPos = card.offsetLeft + card.offsetWidth + 60;
-        const bottomPos = card.offsetTop + card.offsetHeight + 60;
-        if (rightPos > maxRight) maxRight = rightPos;
-        if (bottomPos > maxBottom) maxBottom = bottomPos;
-      });
-
-      canvas.style.width = `${maxRight}px`;
-      canvas.style.height = `${maxBottom}px`;
-    }
-
-    // --- SISTEMA DE PERSISTÊNCIA (LOCALSTORAGE) ---
     function salvarEstadoNoStorage() {
       const cardsData = [];
       document.querySelectorAll('.codex-card').forEach(card => {
         cardsData.push({
-          category: card.dataset.category,
+          filetype: card.dataset.filetype,
           filename: card.dataset.filename,
-          bgClass: card.dataset.bgClass,
-          textClass: card.dataset.textClass,
-          borderClass: card.dataset.borderClass,
           width: card.style.width,
           height: card.style.height,
           left: card.style.left,
@@ -439,11 +452,19 @@
 
     function carregarEstadoDoStorage() {
       const rawData = localStorage.getItem('dexi_codex_cards');
+      const menuVisible = localStorage.getItem('dexi_menu_visible');
+      
+      if (menuVisible === 'false') {
+        toggleMenu(false);
+      } else {
+        toggleMenu(true);
+      }
+
       if (!rawData) return;
       try {
         const cardsData = JSON.parse(rawData);
         cardsData.forEach(c => {
-          createCard(c.category, c.filename, c.bodyContent, c.bgClass, c.textClass, c.borderClass, 280, {
+          createCard(c.filetype, c.filename, c.bodyContent, 280, {
             width: c.width,
             height: c.height,
             left: c.left,
@@ -458,7 +479,6 @@
     function limparQuadro() {
       document.querySelectorAll('.codex-card').forEach(card => card.remove());
       localStorage.removeItem('dexi_codex_cards');
-      atualizarTamanhoQuadro();
     }
 
     function escapeHTML(str) {
@@ -480,7 +500,21 @@
       if (e.target === this) closeModal();
     });
 
-    window.addEventListener('resize', atualizarTamanhoQuadro);
+    // --- CORREÇÃO DO PONTEIRO MOUSE UP GLOBAL ---
+    window.addEventListener('mouseup', (e) => {
+      interact.pointerMoveTolerance = 1;
+      document.body.classList.remove('dragging-active');
+      
+      const activeInteractions = interact.currentInteractions;
+      if (activeInteractions && activeInteractions.length > 0) {
+        activeInteractions.forEach(interaction => {
+          if (interaction.interacting()) {
+            interaction.end();
+          }
+        });
+      }
+    });
+
     document.addEventListener('DOMContentLoaded', carregarEstadoDoStorage);
   </script>
 </body>
