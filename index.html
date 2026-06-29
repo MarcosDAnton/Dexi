@@ -27,7 +27,6 @@
         }
       }
     }
-    // Configura o worker do PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
   </script>
 
@@ -91,7 +90,7 @@
     .pdf-canvas-container {
       width: 100%;
       height: 100%;
-      overflow: auto;
+      overflow: hidden;
       display: flex;
       justify-content: center;
       align-items: flex-start;
@@ -162,12 +161,12 @@
   </div>
 
   <div id="preview-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-    <div class="relative bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl transition-all duration-200">
-      <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+    <div class="relative bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-2xl max-w-5xl w-full h-[90vh] flex flex-col shadow-2xl transition-all duration-200">
+      <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0">
         <h3 id="modal-title" class="font-bold text-slate-800 dark:text-slate-200 truncate pr-4">Visualização</h3>
         <button onclick="closeModal()" class="text-slate-400 hover:text-rose-500 font-bold text-xl px-2 transition-colors">&times;</button>
       </div>
-      <div id="modal-content" class="p-2 flex-1 overflow-auto bg-slate-50 dark:bg-slate-950 rounded-b-2xl min-h-[50vh]"></div>
+      <div id="modal-content" class="p-1 flex-1 overflow-hidden bg-slate-100 dark:bg-slate-950 rounded-b-2xl flex flex-col"></div>
     </div>
   </div>
 
@@ -381,7 +380,7 @@
         guardarPdfNoDb(pdfId, file);
 
         bodyHtml = `<div class="w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden relative" data-pdfid="${pdfId}">
-                      <button onclick="expandirPdf('${pdfId}', '${escapeHTML(file.name)}')" class="absolute top-2 right-2 bg-slate-800/80 dark:bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-lg z-20 transition-all shadow-md">🔍 Expandir</button>
+                      <button onclick="expandirPdf('${pdfId}', '${escapeHTML(file.name)}')" class="absolute top-2 right-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] px-2.5 py-1.5 rounded-lg z-20 transition-all shadow-md">🔍 Ler / Editar</button>
                       <div class="pdf-canvas-container"><canvas class="pdf-render-canvas"></canvas></div>
                     </div>`;
         createCard(extension, file.name, bodyHtml, 360);
@@ -397,7 +396,6 @@
       }
     }
 
-    // Método Robusto com PDF.js usando Canvas (Aceito nativamente em qualquer Tablet/iPad)
     function renderizarPdfPorId(id, targetCanvasElement = null) {
       if(!db) return;
       const transaction = db.transaction(["pdfs"], "readonly");
@@ -412,14 +410,13 @@
           const typedarray = new Uint8Array(this.result);
           
           pdfjsLib.getDocument(typedarray).promise.then(pdf => {
-            // Renderiza sempre a primeira página no card preview
             pdf.getPage(1).then(page => {
               const container = document.querySelector(`[data-pdfid="${id}"]`);
               const canvasEl = targetCanvasElement || (container ? container.querySelector('.pdf-render-canvas') : null);
               if (!canvasEl) return;
 
               const context = canvasEl.getContext('2d');
-              const viewport = page.getViewport({ scale: 1.2 });
+              const viewport = page.getViewport({ scale: 1.0 });
               
               canvasEl.height = viewport.height;
               canvasEl.width = viewport.width;
@@ -436,12 +433,30 @@
       };
     }
 
+    // Carrega o visualizador web completo integrado do PDF.js direto no Modal
     function expandirPdf(id, filename) {
-      openModal(filename, `<div class="w-full flex justify-center bg-slate-900 rounded-xl p-2 overflow-auto" style="height: 75vh;"><canvas id="modal-pdf-canvas" class="max-w-full"></canvas></div>`);
-      setTimeout(() => {
-        const modalCanvas = document.getElementById('modal-pdf-canvas');
-        if(modalCanvas) renderizarPdfPorId(id, modalCanvas);
-      }, 100);
+      if(!db) return;
+      const transaction = db.transaction(["pdfs"], "readonly");
+      const request = transaction.objectStore(["pdfs"]).get(id);
+      
+      request.onsuccess = (e) => {
+        const blob = e.target.result;
+        if(!blob) return;
+
+        // Cria o blob URL temporário ativo apenas para a sessão de leitura do modal
+        const viewUrl = URL.createObjectURL(blob);
+        
+        // Usamos a UI padrão de visualização web do PDF.js distribuída via CDN oficial do Mozilla
+        // Ela injeta barra de ferramentas, marcadores, zoom nativo e modo edição por cima do blob.
+        const viewerIframeHtml = `
+          <iframe 
+            src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/web/viewer.html?file=${encodeURIComponent(viewUrl)}" 
+            class="w-full h-full border-none rounded-b-xl"
+            allow="fullscreen">
+          </iframe>`;
+        
+        openModal(filename, viewerIframeHtml);
+      };
     }
 
     function createCard(fileType, filename, bodyContent, customWidth = 280, savedProps = null) {
@@ -616,7 +631,6 @@
           });
         });
         
-        // Renderiza os PDFs salvos usando a engine do PDF.js
         document.querySelectorAll('[data-pdfid]').forEach(container => {
           renderizarPdfPorId(container.dataset.pdfid);
         });
