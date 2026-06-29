@@ -101,7 +101,7 @@
 
   <input type="file" id="folder-selector" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelection(this.files)">
 
-  <button id="trigger-left" onclick="toggleMenu(true)" class="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-amber-500 hover:bg-amber-600 text-white p-3 rounded-r-xl shadow-lg transition-all font-bold hidden">></button>
+  <button id="trigger-left" onclick="toggleMenu(true)" class="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-amber-500 hover:bg-amber-600 text-white p-3 rounded-r-xl shadow-lg transition-all font-bold hidden">&gt;</button>
 
   <div class="flex h-screen w-screen relative overflow-hidden">
     
@@ -433,7 +433,7 @@
       };
     }
 
-    // Carrega o visualizador web completo integrado do PDF.js direto no Modal
+    // Carrega o visualizador nativo do navegador direto no Modal, aceitando o Blob URL perfeitamente
     function expandirPdf(id, filename) {
       if(!db) return;
       const transaction = db.transaction(["pdfs"], "readonly");
@@ -446,16 +446,23 @@
         // Cria o blob URL temporário ativo apenas para a sessão de leitura do modal
         const viewUrl = URL.createObjectURL(blob);
         
-        // Usamos a UI padrão de visualização web do PDF.js distribuída via CDN oficial do Mozilla
-        // Ela injeta barra de ferramentas, marcadores, zoom nativo e modo edição por cima do blob.
-        const viewerIframeHtml = `
-          <iframe 
-            src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/web/viewer.html?file=${encodeURIComponent(viewUrl)}" 
-            class="w-full h-full border-none rounded-b-xl"
-            allow="fullscreen">
-          </iframe>`;
+        // Usamos a tag <embed> nativa do navegador que abre o leitor completo com suporte a zoom e edição
+        const viewerNativeHtml = `
+          <embed 
+            src="${viewUrl}" 
+            type="application/pdf"
+            class="w-full h-full rounded-b-xl"
+          />`;
         
-        openModal(filename, viewerIframeHtml);
+        openModal(filename, viewerNativeHtml);
+
+        // Revoga o ObjectURL quando o modal fechar para liberar memória do navegador
+        const originalCloseModal = window.closeModal;
+        window.closeModal = function() {
+          URL.revokeObjectURL(viewUrl);
+          originalCloseModal();
+          window.closeModal = originalCloseModal; // restaura a função original
+        };
       };
     }
 
