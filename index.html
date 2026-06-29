@@ -211,7 +211,7 @@
     }
 
     function startPan(e) {
-      if (e.target.closest('.codex-card') || e.target.closest('aside') || e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('canvas')) {
+      if (e.target.closest('.codex-card') || e.target.closest('aside') || e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('canvas') || e.target.closest('embed')) {
         isPanning = false;
         return;
       }
@@ -433,7 +433,7 @@
       };
     }
 
-    // Carrega o visualizador nativo do navegador direto no Modal, aceitando o Blob URL perfeitamente
+    // Redireciona o leitor de PDF para um Card Grande na própria grade infinita do Canvas
     function expandirPdf(id, filename) {
       if(!db) return;
       const transaction = db.transaction(["pdfs"], "readonly");
@@ -443,26 +443,29 @@
         const blob = e.target.result;
         if(!blob) return;
 
-        // Cria o blob URL temporário ativo apenas para a sessão de leitura do modal
         const viewUrl = URL.createObjectURL(blob);
         
-        // Usamos a tag <embed> nativa do navegador que abre o leitor completo com suporte a zoom e edição
-        const viewerNativeHtml = `
-          <embed 
-            src="${viewUrl}" 
-            type="application/pdf"
-            class="w-full h-full rounded-b-xl"
-          />`;
+        // Elemento embed em tela cheia dentro do card para as ferramentas do leitor nativo
+        const readerContentHtml = `
+          <div class="w-full h-full bg-slate-900 relative">
+            <embed 
+              src="${viewUrl}" 
+              type="application/pdf"
+              class="w-full h-full block"
+            />
+          </div>`;
         
-        openModal(filename, viewerNativeHtml);
+        // Cria um card grande (Largura de 650px) na posição atual do mouse ou centralizado no pan
+        const customWidth = window.innerWidth > 800 ? 650 : 340;
+        const targetLeft = mouseXCanvas ? (mouseXCanvas - 50) : (Math.abs(panX) + 400);
+        const targetTop = mouseYCanvas ? (mouseYCanvas - 20) : (Math.abs(panY) + 100);
 
-        // Revoga o ObjectURL quando o modal fechar para liberar memória do navegador
-        const originalCloseModal = window.closeModal;
-        window.closeModal = function() {
-          URL.revokeObjectURL(viewUrl);
-          originalCloseModal();
-          window.closeModal = originalCloseModal; // restaura a função original
-        };
+        createCard('LEITOR PDF', filename, readerContentHtml, customWidth, {
+          width: `${customWidth}px`,
+          height: `550px`,
+          left: `${targetLeft}px`,
+          top: `${targetTop}px`
+        });
       };
     }
 
@@ -474,7 +477,7 @@
       card.dataset.filename = filename;
 
       const finalWidth = customWidth;
-      const finalHeight = 260;
+      const finalHeight = savedProps && savedProps.height ? parseFloat(savedProps.height) : 260;
 
       if (savedProps) {
         card.style.width = savedProps.width;
@@ -501,7 +504,7 @@
       card.innerHTML = `
         <div class="card-header px-4 py-3 border-b border-slate-100 dark:border-slate-800/60 flex justify-between items-center font-bold text-xs rounded-t-2xl select-none shrink-0 cursor-move">
           <div class="flex items-center gap-2 truncate max-w-[85%] pointer-events-none">
-            <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] tracking-wide uppercase shrink-0">${fileType}</span>
+            <span class="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-500 text-[10px] tracking-wide uppercase shrink-0">${fileType}</span>
             <span class="text-slate-400 dark:text-slate-500 truncate" title="${filename}">${filename}</span>
           </div>
           <button onclick="excluirCard(this)" class="text-slate-400 hover:text-rose-500 font-bold text-sm px-1.5 py-0.5 rounded transition-colors" title="Excluir Card">&times;</button>
