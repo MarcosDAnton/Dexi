@@ -402,7 +402,6 @@
         createCard(extension, file.name, bodyHtml, 300);
       }
       else if (fileNameLower.endsWith('.pdf')) {
-        // GERA DIRETAMENTE O CARD GRANDE DO LEITOR PDF AO SOLTAR O ARQUIVO
         const pdfId = "pdf_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
         guardarPdfNoDb(pdfId, file);
         montarEGerarLeitorPdf(pdfId, file.name, 1);
@@ -416,7 +415,6 @@
       }
     }
 
-    // Estrutura unificada para instanciar e renderizar o Leitor PDF Nativo
     function montarEGerarLeitorPdf(id, filename, paginaInicial = 1, savedProps = null) {
       const viewerId = "view_" + id + "_" + Date.now();
 
@@ -453,14 +451,14 @@
         };
       }
 
-      createCard('LEITOR PDF', filename, readerContentHtml, customWidth, props);
+      // MODIFICADO: Passando apenas 'PDF' como tag identificadora
+      createCard('PDF', filename, readerContentHtml, customWidth, props);
 
       setTimeout(() => {
         renderizarPaginaVisualizador(viewerId, id);
       }, 150);
     }
 
-    // Função para renderizar páginas específicas no visualizador expandido
     function renderizarPaginaVisualizador(viewerId, pdfId) {
       if (!db) return;
       const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
@@ -500,10 +498,8 @@
                 viewport: viewport
               };
               page.render(renderContext).promise.then(() => {
-                // Sincroniza o valor do input numérico com a página atual renderizada
                 const inputEl = container.querySelector('.page-input-card');
                 if (inputEl) inputEl.value = pageNum;
-                // Salva o estado atualizado imediatamente após a mudança de página bem sucedida
                 salvarEstadoNoStorage();
               });
             });
@@ -513,7 +509,6 @@
       };
     }
 
-    // Controla os botões de próxima página e página anterior do card expandido
     function mudarPaginaCard(viewerId, delta) {
       const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
       if (!container) return;
@@ -531,7 +526,6 @@
       renderizarPaginaVisualizador(viewerId, pdfId);
     }
 
-    // Permite pular direto para uma página digitada manualmente no input
     function irParaPaginaCard(viewerId, valor) {
       const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
       if (!container) return;
@@ -713,7 +707,6 @@
           top: card.style.top,
           currentPage: savedCurrentPage,
           pdfSourceId: savedPdfSourceId,
-          // Caso não seja PDF, preserva o HTML normal do corpo do card
           bodyContent: viewerEl ? "" : card.querySelector('.card-body-holder').innerHTML 
         });
       });
@@ -729,13 +722,12 @@
       try {
         const cardsData = JSON.parse(rawData);
         cardsData.forEach(c => {
-          if (c.filetype === 'LEITOR PDF' && c.pdfSourceId) {
-            // Reconstroi o PDF diretamente com a página correta salva
+          // MODIFICADO: Verificando se é 'PDF' para carregar dinamicamente com a página correspondente
+          if ((c.filetype === 'PDF' || c.filetype === 'LEITOR PDF') && c.pdfSourceId) {
             montarEGerarLeitorPdf(c.pdfSourceId, c.filename, c.currentPage, {
               width: c.width, height: c.height, left: c.left, top: c.top
             });
           } else {
-            // Reconstroi cards de outros tipos normalmente
             createCard(c.filetype, c.filename, c.bodyContent, 280, {
               width: c.width, height: c.height, left: c.left, top: c.top
             });
