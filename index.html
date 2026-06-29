@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html lang="pt-BR" class="dark"> <head>
+<html lang="pt-BR" class="dark">
+
+<head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Dexi</title>
@@ -36,7 +38,9 @@
       width: 0 !important;
       height: 0 !important;
     }
-    html, body {
+
+    html,
+    body {
       scrollbar-width: none !important;
       -ms-overflow-style: none !important;
       overflow: hidden !important;
@@ -52,12 +56,13 @@
       width: 24px;
       height: 24px;
       cursor: nwse-resize;
-      background: linear-gradient(135deg, transparent 50%, rgba(100,116,139,0.4) 50%);
+      background: linear-gradient(135deg, transparent 50%, rgba(100, 116, 139, 0.4) 50%);
       border-bottom-right-radius: 1rem;
       z-index: 30;
     }
+
     .dark .resize-handle {
-      background: linear-gradient(135deg, transparent 50%, rgba(148,163,184,0.4) 50%);
+      background: linear-gradient(135deg, transparent 50%, rgba(148, 163, 184, 0.4) 50%);
     }
 
     .codex-card {
@@ -65,6 +70,7 @@
       -webkit-user-select: none;
       touch-action: none;
     }
+
     aside {
       transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
@@ -76,17 +82,20 @@
       position: relative;
       cursor: grab;
     }
+
     #board-wrapper:active {
       cursor: grabbing;
     }
+
     #canvas-container {
       position: absolute;
       top: 0;
       left: 0;
-      width: 5000px;  
+      width: 5000px;
       height: 5000px;
       transform-origin: 0 0;
     }
+
     .pdf-canvas-container {
       width: 100%;
       height: 100%;
@@ -97,61 +106,74 @@
     }
   </style>
 </head>
-<body class="bg-[#f8f7f4] dark:bg-[#0f172a] text-[#1e293b] dark:text-[#f8f7f4] min-h-screen overflow-hidden font-sans transition-colors duration-200 relative">
 
-  <input type="file" id="folder-selector" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelection(this.files)">
+<body
+  class="bg-[#f8f7f4] dark:bg-[#0f172a] text-[#1e293b] dark:text-[#f8f7f4] min-h-screen overflow-hidden font-sans transition-colors duration-200 relative">
 
-  <button id="trigger-left" onclick="toggleMenu(true)" class="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-amber-500 hover:bg-amber-600 text-white p-3 rounded-r-xl shadow-lg transition-all font-bold hidden">&gt;</button>
+  <input type="file" id="folder-selector" webkitdirectory directory multiple class="hidden"
+    onchange="handleFolderSelection(this.files)">
+
+  <button id="trigger-left" onclick="toggleMenu(true)"
+    class="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-amber-500 hover:bg-amber-600 text-white p-3 rounded-r-xl shadow-lg transition-all font-bold hidden">&gt;</button>
 
   <div class="flex h-screen w-screen relative overflow-hidden">
-    
-    <aside id="sidebar" class="fixed top-0 left-0 h-full w-[280px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-6 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between z-50 overflow-y-auto transition-colors duration-200 shadow-2xl transform none">
+
+    <aside id="sidebar"
+      class="fixed top-0 left-0 h-full w-[280px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-6 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between z-50 overflow-y-auto transition-colors duration-200 shadow-2xl transform none">
       <div>
         <div class="flex justify-between items-center mb-2">
-          <button onclick="toggleMenu(false)" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-500/20 hover:text-rose-500 transition-all text-slate-500 text-xs font-bold">
+          <button onclick="toggleMenu(false)"
+            class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-500/20 hover:text-rose-500 transition-all text-slate-500 text-xs font-bold">
             &lt;
           </button>
-          <button onclick="toggleTheme()" class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all text-slate-700 dark:text-slate-300 flex items-center justify-center text-sm font-medium">
+          <button onclick="toggleTheme()"
+            class="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all text-slate-700 dark:text-slate-300 flex items-center justify-center text-sm font-medium">
             <span id="theme-icon-sun" class="hidden dark:inline">☀️</span>
             <span id="theme-icon-moon" class="inline dark:hidden">🌙</span>
           </button>
         </div>
 
         <div class="text-center mb-6">
-          <img src="Dexi.png" alt="DEXI" onerror="this.src='https://placehold.co/88x88?text=DEXI'" class="w-[88px] h-auto mx-auto drop-shadow-[0_8px_18px_rgba(201,162,39,0.25)]">
+          <img src="Dexi.png" alt="DEXI" onerror="this.src='https://placehold.co/88x88?text=DEXI'"
+            class="w-[88px] h-auto mx-auto drop-shadow-[0_8px_18px_rgba(201,162,39,0.25)]">
           <h1 class="text-2xl font-extrabold tracking-wider mt-3 mb-0.5 text-slate-900 dark:text-white">Dexi</h1>
           <p class="text-[0.72rem] tracking-[0.18em] uppercase text-slate-500 dark:text-slate-400 m-0">Codex</p>
         </div>
 
         <div class="flex flex-col gap-2 mb-6">
-          <button onclick="triggerFolderSelector()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-xl shadow transition-all flex items-center justify-center gap-2 text-sm">
+          <button onclick="triggerFolderSelector()"
+            class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-xl shadow transition-all flex items-center justify-center gap-2 text-sm">
             Sincronizar
           </button>
-          <button onclick="colarLinkManual()" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold py-2.5 px-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center gap-2 text-sm">
+          <button onclick="colarLinkManual()"
+            class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold py-2.5 px-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center gap-2 text-sm">
             Colar
           </button>
         </div>
 
         <div class="mb-4">
-          <button onclick="limparQuadro()" class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium py-2 px-4 rounded-xl border border-rose-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">
+          <button onclick="limparQuadro()"
+            class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium py-2 px-4 rounded-xl border border-rose-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">
             Limpar
           </button>
         </div>
       </div>
 
-      <div class="text-[0.78rem] text-slate-500 dark:text-slate-400 leading-relaxed p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-300 dark:border-slate-700 mt-4">
+      <div
+        class="text-[0.78rem] text-slate-500 dark:text-slate-400 leading-relaxed p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-300 dark:border-slate-700 mt-4">
         <strong class="text-slate-700 dark:text-slate-200">Como usar:</strong><br>
         1. Clique/toque no fundo vazio e arraste para se movimentar pelo quadro em qualquer direção;<br>
-        <br>
+        <br><br>
         2. Arraste arquivos ou links direto para a grade para criar novos cards;<br>
-        <br>
+        <br><br>
         3. Clique em "Sincronizar" para fazer upload de alguma pasta local ou em nuvem para o quadro;
-        <br>
+        <br><br>
         4. Pressione Ctrl + V ou use o botão "Colar" para adicionar links rápidos;<br>
       </div>
     </aside>
 
-    <div id="board-wrapper" class="bg-grid-light dark:bg-grid-dark transition-all duration-200" style="background-size: 32px 32px;">
+    <div id="board-wrapper" class="bg-grid-light dark:bg-grid-dark transition-all duration-200"
+      style="background-size: 32px 32px;">
       <div id="canvas-container">
         <main class="w-full h-full relative select-none" id="canvas">
         </main>
@@ -160,13 +182,17 @@
 
   </div>
 
-  <div id="preview-modal" class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-    <div class="relative bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-2xl max-w-5xl w-full h-[90vh] flex flex-col shadow-2xl transition-all duration-200">
+  <div id="preview-modal"
+    class="hidden fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+    <div
+      class="relative bg-white dark:bg-slate-900 border border-transparent dark:border-slate-700 rounded-2xl max-w-5xl w-full h-[90vh] flex flex-col shadow-2xl transition-all duration-200">
       <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center shrink-0">
         <h3 id="modal-title" class="font-bold text-slate-800 dark:text-slate-200 truncate pr-4">Visualização</h3>
-        <button onclick="closeModal()" class="text-slate-400 hover:text-rose-500 font-bold text-xl px-2 transition-colors">&times;</button>
+        <button onclick="closeModal()"
+          class="text-slate-400 hover:text-rose-500 font-bold text-xl px-2 transition-colors">&times;</button>
       </div>
-      <div id="modal-content" class="p-1 flex-1 overflow-hidden bg-slate-100 dark:bg-slate-950 rounded-b-2xl flex flex-col"></div>
+      <div id="modal-content"
+        class="p-1 flex-1 overflow-hidden bg-slate-100 dark:bg-slate-950 rounded-b-2xl flex flex-col"></div>
     </div>
   </div>
 
@@ -192,20 +218,20 @@
         db.createObjectStore("pdfs");
       }
     };
-    dbRequest.onsuccess = (e) => { 
-      db = e.target.result; 
+    dbRequest.onsuccess = (e) => {
+      db = e.target.result;
       carregarEstadoDoStorage();
     };
     dbRequest.onerror = (e) => { console.error("Erro ao abrir IndexedDB", e); };
 
     function guardarPdfNoDb(id, blob) {
-      if(!db) return;
+      if (!db) return;
       const transaction = db.transaction(["pdfs"], "readwrite");
       transaction.objectStore(["pdfs"]).put(blob, id);
     }
 
     function removerPdfDoDb(id) {
-      if(!db) return;
+      if (!db) return;
       const transaction = db.transaction(["pdfs"], "readwrite");
       transaction.objectStore(["pdfs"]).delete(id);
     }
@@ -228,8 +254,8 @@
       const pageY = e.touches ? e.touches[0].pageY : e.pageY;
       panX = pageX - startX;
       panY = pageY - startY;
-      if(panX > 0) panX = 0;
-      if(panY > 0) panY = 0;
+      if (panX > 0) panX = 0;
+      if (panY > 0) panY = 0;
       canvasContainer.style.transform = `translate(${panX}px, ${panY}px)`;
       boardWrapper.style.backgroundPosition = `${panX}px ${panY}px`;
     }
@@ -286,7 +312,7 @@
 
     async function handleFolderSelection(files) {
       localizedFiles = Array.from(files);
-      if(localizedFiles.length === 0) return;
+      if (localizedFiles.length === 0) return;
       for (const file of localizedFiles) {
         await processAndCreateCard(file);
       }
@@ -313,7 +339,7 @@
 
     function processLinkCard(url, savedTag = '') {
       let hostname = 'Link';
-      try { hostname = new URL(url).hostname; } catch(e) {}
+      try { hostname = new URL(url).hostname; } catch (e) { }
       const bodyHtml = `
         <div class="p-4 text-center bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-between items-center gap-2">
           <input type="text" value="${escapeHTML(savedTag)}" placeholder="Dar um nome/tag..." oninput="atualizarTagLink(this)" class="w-full text-xs font-medium px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:border-amber-500 text-slate-700 dark:text-slate-200 select-text">
@@ -384,7 +410,7 @@
                       <div class="pdf-canvas-container"><canvas class="pdf-render-canvas"></canvas></div>
                     </div>`;
         createCard(extension, file.name, bodyHtml, 360);
-        
+
         setTimeout(() => renderizarPdfPorId(pdfId), 150);
       }
       else {
@@ -397,18 +423,18 @@
     }
 
     function renderizarPdfPorId(id, targetCanvasElement = null) {
-      if(!db) return;
+      if (!db) return;
       const transaction = db.transaction(["pdfs"], "readonly");
       const request = transaction.objectStore(["pdfs"]).get(id);
-      
+
       request.onsuccess = (e) => {
         const blob = e.target.result;
-        if(!blob) return;
+        if (!blob) return;
 
         const fileReader = new FileReader();
-        fileReader.onload = function() {
+        fileReader.onload = function () {
           const typedarray = new Uint8Array(this.result);
-          
+
           pdfjsLib.getDocument(typedarray).promise.then(pdf => {
             pdf.getPage(1).then(page => {
               const container = document.querySelector(`[data-pdfid="${id}"]`);
@@ -417,7 +443,7 @@
 
               const context = canvasEl.getContext('2d');
               const viewport = page.getViewport({ scale: 1.0 });
-              
+
               canvasEl.height = viewport.height;
               canvasEl.width = viewport.width;
 
@@ -435,16 +461,16 @@
 
     // Redireciona o leitor de PDF para um Card Grande na própria grade infinita do Canvas
     function expandirPdf(id, filename) {
-      if(!db) return;
+      if (!db) return;
       const transaction = db.transaction(["pdfs"], "readonly");
       const request = transaction.objectStore(["pdfs"]).get(id);
-      
+
       request.onsuccess = (e) => {
         const blob = e.target.result;
-        if(!blob) return;
+        if (!blob) return;
 
         const viewUrl = URL.createObjectURL(blob);
-        
+
         // Elemento embed em tela cheia dentro do card para as ferramentas do leitor nativo
         const readerContentHtml = `
           <div class="w-full h-full bg-slate-900 relative">
@@ -454,7 +480,7 @@
               class="w-full h-full block"
             />
           </div>`;
-        
+
         // Cria um card grande (Largura de 650px) na posição atual do mouse ou centralizado no pan
         const customWidth = window.innerWidth > 800 ? 650 : 340;
         const targetLeft = mouseXCanvas ? (mouseXCanvas - 50) : (Math.abs(panX) + 400);
@@ -472,7 +498,7 @@
     function createCard(fileType, filename, bodyContent, customWidth = 280, savedProps = null) {
       const card = document.createElement('div');
       card.className = `codex-card absolute bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg dark:shadow-2xl z-10 hover:border-slate-400 dark:hover:border-slate-600 overflow-hidden flex flex-col transform-none`;
-      
+
       card.dataset.filetype = fileType;
       card.dataset.filename = filename;
 
@@ -488,7 +514,7 @@
         card.style.width = `${finalWidth}px`;
         card.style.height = `${finalHeight}px`;
         const totalCards = document.querySelectorAll('.codex-card').length;
-        const spacingX = 24; const spacingY = 24; 
+        const spacingX = 24; const spacingY = 24;
         const cardsPerLine = Math.floor(1200 / (finalWidth + spacingX));
         const col = totalCards % cardsPerLine;
         const row = Math.floor(totalCards / cardsPerLine);
@@ -497,7 +523,7 @@
         card.style.left = `${startX}px`;
         card.style.top = `${startY}px`;
       }
-      
+
       card.style.minWidth = `200px`;
       card.style.minHeight = `140px`;
 
@@ -523,7 +549,7 @@
       const card = button.closest('.codex-card');
       if (card) {
         const pdfContainer = card.querySelector('[data-pdfid]');
-        if(pdfContainer) {
+        if (pdfContainer) {
           removerPdfDoDb(pdfContainer.dataset.pdfid);
         }
         card.remove();
@@ -588,7 +614,7 @@
     function tratarLinkColado(pastedText) {
       if (pastedText.startsWith('http://') || pastedText.startsWith('https://')) {
         let hostname = 'Link';
-        try { hostname = new URL(pastedText).hostname; } catch(err) {}
+        try { hostname = new URL(pastedText).hostname; } catch (err) { }
         const bodyHtml = `
           <div class="p-4 text-center bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-between items-center gap-2">
             <input type="text" value="" placeholder="Dar um nome/tag..." oninput="atualizarTagLink(this)" class="w-full text-xs font-medium px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:border-amber-500 text-slate-700 dark:text-slate-200 select-text">
@@ -612,7 +638,7 @@
       const cardsData = [];
       document.querySelectorAll('.codex-card').forEach(card => {
         const inputTag = card.querySelector('input[type="text"]');
-        if(inputTag) inputTag.setAttribute('value', inputTag.value);
+        if (inputTag) inputTag.setAttribute('value', inputTag.value);
 
         cardsData.push({
           filetype: card.dataset.filetype,
@@ -640,7 +666,7 @@
             width: c.width, height: c.height, left: c.left, top: c.top
           });
         });
-        
+
         document.querySelectorAll('[data-pdfid]').forEach(container => {
           renderizarPdfPorId(container.dataset.pdfid);
         });
@@ -652,7 +678,7 @@
     function limparQuadro() {
       document.querySelectorAll('.codex-card').forEach(card => card.remove());
       localStorage.removeItem('dexi_codex_cards');
-      if(db) {
+      if (db) {
         const transaction = db.transaction(["pdfs"], "readwrite");
         transaction.objectStore(["pdfs"]).clear();
       }
@@ -673,7 +699,7 @@
       document.getElementById('modal-content').innerHTML = '';
     }
 
-    document.getElementById('preview-modal').addEventListener('click', function(e) {
+    document.getElementById('preview-modal').addEventListener('click', function (e) {
       if (e.target === this) closeModal();
     });
 
@@ -696,4 +722,5 @@
     });
   </script>
 </body>
+
 </html>
