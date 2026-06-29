@@ -459,7 +459,7 @@
       };
     }
 
-    // Redireciona o leitor de PDF para um Card Grande na própria grade infinita do Canvas
+    // Redireciona o leitor de PDF para um Card Grande na própria grade infinita do Canvas usando Canvas do PDF.js
     function expandirPdf(id, filename) {
       if (!db) return;
       const transaction = db.transaction(["pdfs"], "readonly");
@@ -469,19 +469,23 @@
         const blob = e.target.result;
         if (!blob) return;
 
-        const viewUrl = URL.createObjectURL(blob);
+        const viewerId = "view_" + id + "_" + Date.now();
 
-        // Elemento embed em tela cheia dentro do card para as ferramentas do leitor nativo
+        // Estrutura HTML com canvas embutido e paginação nativa no Card
         const readerContentHtml = `
-          <div class="w-full h-full bg-slate-900 relative">
-            <embed 
-              src="${viewUrl}" 
-              type="application/pdf"
-              class="w-full h-full block"
-            />
+          <div class="w-full h-full bg-slate-900 flex flex-col relative select-none" data-viewerid="${viewerId}" data-pdfsourceid="${id}">
+            <div class="bg-slate-800 text-white px-3 py-2 flex justify-between items-center text-xs shrink-0 select-none">
+              <div class="flex items-center gap-2">
+                <button onclick="mudarPaginaCard('${viewerId}', -1)" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded font-bold transition-all">< Anterior</button>
+                <button onclick="mudarPaginaCard('${viewerId}', 1)" class="bg-slate-700 hover:bg-slate-600 px-2.5 py-1 rounded font-bold transition-all">Próxima ></button>
+              </div>
+              <span class="font-mono text-[11px]">Pág: <span class="page-num-card font-bold text-amber-400">1</span> / <span class="page-count-card">?</span></span>
+            </div>
+            <div class="flex-1 overflow-auto p-2 flex justify-center items-start bg-slate-950 pointer-events-auto">
+              <canvas class="pdf-viewer-canvas shadow-lg max-w-full h-auto"></canvas>
+            </div>
           </div>`;
 
-        // Cria um card grande (Largura de 650px) na posição atual do mouse ou centralizado no pan
         const customWidth = window.innerWidth > 800 ? 650 : 340;
         const targetLeft = mouseXCanvas ? (mouseXCanvas - 50) : (Math.abs(panX) + 400);
         const targetTop = mouseYCanvas ? (mouseYCanvas - 20) : (Math.abs(panY) + 100);
@@ -492,7 +496,82 @@
           left: `${targetLeft}px`,
           top: `${targetTop}px`
         });
+
+        // Configura e renderiza a primeira página do leitor
+        setTimeout(() => {
+          const el = document.querySelector(`[data-viewerid="${viewerId}"]`);
+          if (el) {
+            el.dataset.currentPage = 1;
+            renderizarPaginaVisualizador(viewerId, id);
+          }
+        }, 150);
       };
+    }
+
+    // Função para renderizar páginas específicas no visualizador expandido
+    function renderizarPaginaVisualizador(viewerId, pdfId) {
+      if (!db) return;
+      const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
+      if (!container) return;
+
+      const transaction = db.transaction(["pdfs"], "readonly");
+      const request = transaction.objectStore(["pdfs"]).get(pdfId);
+
+      request.onsuccess = (e) => {
+        const blob = e.target.result;
+        if (!blob) return;
+
+        const fileReader = new FileReader();
+        fileReader.onload = function () {
+          const typedarray = new Uint8Array(this.result);
+
+          pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+            const pageNum = parseInt(container.dataset.currentPage) || 1;
+            container.querySelector('.page-count-card').innerText = pdf.numPages;
+
+            pdf.getPage(pageNum).then(page => {
+              const canvasEl = container.querySelector('.pdf-viewer-canvas');
+              if (!canvasEl) return;
+
+              const context = canvasEl.getContext('2d');
+              
+              const cardBodyWidth = canvasEl.parentElement.clientWidth || 400;
+              const unscaledViewport = page.getViewport({ scale: 1.0 });
+              const scale = (cardBodyWidth - 20) / unscaledViewport.width;
+              const viewport = page.getViewport({ scale: scale > 1.5 ? 1.5 : scale });
+
+              canvasEl.height = viewport.height;
+              canvasEl.width = viewport.width;
+
+              const renderContext = {
+                canvasContext: context,
+                viewport: viewport
+              };
+              page.render(renderContext);
+              container.querySelector('.page-num-card').innerText = pageNum;
+            });
+          }).catch(err => console.error("Erro ao renderizar página expandida:", err));
+        };
+        fileReader.readAsArrayBuffer(blob);
+      };
+    }
+
+    // Controla os botões de próxima página e página anterior do card expandido
+    function mudarPaginaCard(viewerId, delta) {
+      const container = document.querySelector(`[data-viewerid="${viewerId}"]`);
+      if (!container) return;
+
+      let currentPage = parseInt(container.dataset.currentPage) || 1;
+      const totalPages = parseInt(container.querySelector('.page-count-card').innerText) || 1;
+
+      currentPage += delta;
+      if (currentPage < 1) currentPage = 1;
+      if (currentPage > totalPages) currentPage = totalPages;
+
+      container.dataset.currentPage = currentPage;
+      const pdfId = container.dataset.pdfsourceid;
+
+      renderizarPaginaVisualizador(viewerId, pdfId);
     }
 
     function createCard(fileType, filename, bodyContent, customWidth = 280, savedProps = null) {
@@ -640,6 +719,15 @@
         const inputTag = card.querySelector('input[type="text"]');
         if (inputTag) inputTag.setAttribute('value', inputTag.value);
 
+        // Armazena a página corrente caso seja um leitor de PDF ativo
+        const viewerEl = card.querySelector('[data-viewerid]');
+        let savedCurrentPage = 1;
+        let savedPdfSourceId = "";
+        if (viewerEl) {
+          savedCurrentPage = viewerEl.dataset.currentPage || 1;
+          savedPdfSourceId = viewerEl.dataset.pdfsourceid || "";
+        }
+
         cardsData.push({
           filetype: card.dataset.filetype,
           filename: card.dataset.filename,
@@ -647,7 +735,9 @@
           height: card.style.height,
           left: card.style.left,
           top: card.style.top,
-          bodyContent: card.querySelector('.card-body-holder').innerHTML
+          bodyContent: card.querySelector('.card-body-holder').innerHTML,
+          currentPage: savedCurrentPage,
+          pdfSourceId: savedPdfSourceId
         });
       });
       localStorage.setItem('dexi_codex_cards', JSON.stringify(cardsData));
@@ -665,11 +755,30 @@
           createCard(c.filetype, c.filename, c.bodyContent, 280, {
             width: c.width, height: c.height, left: c.left, top: c.top
           });
+
+          // Restaura o estado da página salva nos elementos reconstruídos
+          if (c.filetype === 'LEITOR PDF' && c.pdfSourceId) {
+            const cardsArr = document.querySelectorAll('.codex-card');
+            const lastInsertedCard = cardsArr[cardsArr.length - 1];
+            const viewerEl = lastInsertedCard.querySelector('[data-viewerid]');
+            if (viewerEl) {
+              viewerEl.dataset.currentPage = c.currentPage || 1;
+            }
+          }
         });
 
+        // Redesenha as previews normais de PDF secundários
         document.querySelectorAll('[data-pdfid]').forEach(container => {
           renderizarPdfPorId(container.dataset.pdfid);
         });
+
+        // Redesenha os leitores de PDF expandidos resgatando do banco
+        document.querySelectorAll('[data-viewerid]').forEach(viewer => {
+          const viewerId = viewer.dataset.viewerid;
+          const pdfId = viewer.dataset.pdfsourceid;
+          renderizarPaginaVisualizador(viewerId, pdfId);
+        });
+
       } catch (e) {
         console.error("Erro ao carregar dados", e);
       }
