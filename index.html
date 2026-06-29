@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR" class="dark"> <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Dexi</title>
   <link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
   <meta name="description" content="Codex de conhecimentos intuitivos, linguísticos e científicos.">
@@ -29,7 +29,6 @@
   </script>
 
   <style>
-    /* Oculta completamente as scrollbars em todos os navegadores */
     ::-webkit-scrollbar {
       display: none !important;
       width: 0 !important;
@@ -39,15 +38,15 @@
       scrollbar-width: none !important;
       -ms-overflow-style: none !important;
       overflow: hidden !important;
+      touch-action: none;
     }
 
-    /* Ajuste do handle de resize visual */
     .resize-handle {
       position: absolute;
       right: 0;
       bottom: 0;
-      width: 16px;
-      height: 16px;
+      width: 24px;
+      height: 24px;
       cursor: nwse-resize;
       background: linear-gradient(135deg, transparent 50%, rgba(100,116,139,0.4) 50%);
       border-bottom-right-radius: 1rem;
@@ -59,15 +58,15 @@
     .codex-card {
       user-select: none;
       -webkit-user-select: none;
+      touch-action: none;
     }
-    .dragging-active iframe {
+    .dragging-active iframe, .dragging-active video {
       pointer-events: none !important;
     }
     aside {
       transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    /* Estilo do container invisível para permitir o pan infinito */
     #board-wrapper {
       width: 100vw;
       height: 100vh;
@@ -78,12 +77,11 @@
     #board-wrapper:active {
       cursor: grabbing;
     }
-    /* O canvas real que se move */
     #canvas-container {
       position: absolute;
       top: 0;
       left: 0;
-      width: 5000px;  /* Tamanho virtual gigante para navegação livre */
+      width: 5000px;
       height: 5000px;
       transform-origin: 0 0;
     }
@@ -92,8 +90,9 @@
 <body class="bg-[#f8f7f4] dark:bg-[#0f172a] text-[#1e293b] dark:text-[#f8f7f4] min-h-screen overflow-hidden font-sans transition-colors duration-200 relative">
 
   <input type="file" id="folder-selector" webkitdirectory directory multiple class="hidden" onchange="handleFolderSelection(this.files)">
+  <input type="file" id="file-selector-mobile" multiple class="hidden" onchange="handleFolderSelection(this.files)">
 
-  <button id="trigger-left" onclick="toggleMenu(true)" class="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-r-xl shadow-lg transition-all font-bold hidden">></button>
+  <button id="trigger-left" onclick="toggleMenu(true)" class="fixed left-0 top-1/2 -translate-y-1/2 z-40 bg-amber-500 hover:bg-amber-600 text-white p-3 rounded-r-xl shadow-lg transition-all font-bold hidden">></button>
 
   <div class="flex h-screen w-screen relative overflow-hidden">
     
@@ -115,26 +114,30 @@
           <p class="text-[0.72rem] tracking-[0.18em] uppercase text-slate-500 dark:text-slate-400 m-0">Codex</p>
         </div>
 
-        <button onclick="triggerFolderSelector()" class="w-full mb-6 bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-xl shadow transition-all flex items-center justify-center gap-2 text-sm">
-          Sincronizar
-        </button>
+        <div class="flex flex-col gap-2 mb-4">
+          <button onclick="triggerFolderSelector()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2.5 px-4 rounded-xl shadow transition-all flex items-center justify-center gap-2 text-sm">
+            Sincronizar Pasta
+          </button>
+          <button onclick="triggerFileSelectorMobile()" class="w-full bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-400 font-bold py-2 px-4 rounded-xl transition-all flex items-center justify-center gap-2 text-xs md:hidden">
+            + Adicionar Arquivos
+          </button>
+          <button onclick="colarLinkMobile()" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold py-2 px-4 rounded-xl transition-all flex items-center justify-center gap-2 text-xs">
+            📋 Colar Link da Área de Transferência
+          </button>
+        </div>
 
         <div class="mb-4">
           <button onclick="limparQuadro()" class="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 font-medium py-2 px-4 rounded-xl border border-rose-500/20 transition-all text-xs text-center flex items-center justify-center gap-2">
-            Limpar
+            Limpar Quadro
           </button>
         </div>
       </div>
 
       <div class="text-[0.78rem] text-slate-500 dark:text-slate-400 leading-relaxed p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-dashed border-slate-300 dark:border-slate-700 mt-4">
-        <strong class="text-slate-700 dark:text-slate-200">Como usar:</strong><br>
-        1. Clique/toque no fundo vazio e arraste para se movimentar pelo quadro em qualquer direção;<br>
-        <br>
-        2. Arraste arquivos ou links direto para a grade para criar novos cards;<br>
-        <br>
-        3. Pressione Ctrl+V apontando o mouse no fundo para colar um link copiado;<br>
-        <br>
-        4. Use a barra para "Sincronizar" pastas e "Limpar" para apagar o quadro;
+        <strong class="text-slate-700 dark:text-slate-200">Como usar no Mobile/Tablet:</strong><br>
+        1. Arraste no fundo vazio para navegar pelo painel infinito;<br>
+        2. Use os botões acima para adicionar mídias ou links sem precisar arrastar;<br>
+        3. Dê um toque longo ou use a barra superior do card para movê-lo de lugar.
       </div>
     </aside>
 
@@ -163,17 +166,18 @@
     const canvasContainer = document.getElementById('canvas-container');
     let localizedFiles = [];
 
-    // --- VARIÁVEIS DO MECANISMO DE PAN (Navegação pelo Quadro) ---
     let isPanning = false;
     let startX = 0, startY = 0;
     let panX = 0, panY = 0;
 
-    // --- VARIÁVEIS DE RASTREAMENTO DO MOUSE ---
     let mouseXCanvas = 0;
     let mouseYCanvas = 0;
 
+    function isMobileDevice() {
+      return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+    }
+
     function startPan(e) {
-      // Bloqueio rigoroso de pan se a origem for em cards, botões ou componentes interativos
       if (e.target.closest('.codex-card') || e.target.closest('aside') || e.target.closest('button') || e.target.closest('input') || e.target.closest('a')) {
         isPanning = false;
         return;
@@ -189,7 +193,6 @@
 
     function doPan(e) {
       if (!isPanning) return;
-      e.preventDefault();
       
       const pageX = e.pageX || (e.touches ? e.touches[0].pageX : null);
       const pageY = e.pageY || (e.touches ? e.touches[0].pageY : null);
@@ -214,19 +217,16 @@
     window.addEventListener('mousemove', doPan);
     window.addEventListener('mouseup', endPan);
 
-    boardWrapper.addEventListener('touchstart', startPan, { passive: false });
-    window.addEventListener('touchmove', doPan, { passive: false });
+    boardWrapper.addEventListener('touchstart', startPan, { passive: true });
+    window.addEventListener('touchmove', doPan, { passive: true });
     window.addEventListener('touchend', endPan);
 
-    // Monitora a posição exata do ponteiro dentro do quadro virtual móbile
     window.addEventListener('mousemove', (e) => {
       const rect = canvas.getBoundingClientRect();
       mouseXCanvas = e.clientX - rect.left;
       mouseYCanvas = e.clientY - rect.top;
     });
 
-
-    // --- CONTROLE DE EXIBIÇÃO DO MENU LATERAL ---
     function toggleMenu(show) {
       const sidebar = document.getElementById('sidebar');
       const triggerLeft = document.getElementById('trigger-left');
@@ -261,6 +261,10 @@
       document.getElementById('folder-selector').click();
     }
 
+    function triggerFileSelectorMobile() {
+      document.getElementById('file-selector-mobile').click();
+    }
+
     async function handleFolderSelection(files) {
       localizedFiles = Array.from(files);
       if(localizedFiles.length === 0) return;
@@ -270,7 +274,6 @@
       }
     }
 
-    // --- DRAG & DROP DE ARQUIVOS E LINKS EXTERNOS ---
     const dropZone = boardWrapper;
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
       dropZone.addEventListener(eventName, e => e.preventDefault(), false);
@@ -287,22 +290,19 @@
     dropZone.addEventListener('drop', (e) => {
       dropZone.classList.remove('bg-slate-200/40', 'dark:bg-slate-800/40');
       
-      // Captura links de internet arrastados (URLs)
       const linkData = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
       if (linkData && (linkData.startsWith('http://') || linkData.startsWith('https://'))) {
         processLinkCard(linkData);
         return;
       }
 
-      // Captura arquivos locais
       const files = e.dataTransfer.files;
       if (files.length > 0) {
         Array.from(files).forEach(file => processAndCreateCard(file));
       }
     });
 
-    // Função para criar card de Links com Tag/Nome persistente
-    function processLinkCard(url, savedTag = '') {
+    function processLinkCard(url, savedTag = '', explicitCoords = null) {
       let hostname = 'Link';
       try { hostname = new URL(url).hostname; } catch(e) {}
       
@@ -315,16 +315,29 @@
           </a>
         </div>
       `;
-      createCard('LINK', hostname, bodyHtml, 280);
+      createCard('LINK', hostname, bodyHtml, 280, null, explicitCoords);
     }
 
-    // Atualiza o estado no Storage quando o usuário digita no input do Link
     function atualizarTagLink(inputElement) {
       inputElement.setAttribute('value', inputElement.value);
       salvarEstadoNoStorage();
     }
 
-    // Processamento de arquivos atualizado para Áudio, Vídeo, Imagem e PDF blob seguro
+    async function colarLinkMobile() {
+      try {
+        const pastedText = await navigator.clipboard.readText();
+        if (pastedText.startsWith('http://') || pastedText.startsWith('https://')) {
+          const spawnX = Math.abs(panX) + (window.innerWidth / 2) - 100;
+          const spawnY = Math.abs(panY) + (window.innerHeight / 2) - 100;
+          processLinkCard(pastedText.trim(), '', { left: `${spawnX}px`, top: `${spawnY}px` });
+        } else {
+          alert("O conteúdo da área de transferência não parece ser um link válido.");
+        }
+      } catch (err) {
+        alert("Permissão para acessar a área de transferência negada. Cole usando Ctrl+V no teclado.");
+      }
+    }
+
     async function processAndCreateCard(file) {
       const fileNameLower = file.name.toLowerCase();
       const extension = file.name.includes('.') ? file.name.split('.').pop().toUpperCase() : 'ARQUIVO';
@@ -373,12 +386,22 @@
         createCard(extension, file.name, bodyHtml, 300);
       }
       else if (fileNameLower.endsWith('.pdf')) {
-        // Solução PDF: Cria um ObjectURL temporário da memória em vez de String Base64 pesada
         const fileURL = URL.createObjectURL(file);
-        bodyHtml = `<div class="w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden relative group">
-                      <button onclick="openModal('${escapeHTML(file.name)}', '<iframe src=\\'${fileURL}\\' class=\\'w-full h-[75vh] border-none\\'></iframe>')" class="absolute top-2 right-2 bg-slate-800 dark:bg-slate-900 text-white text-xs px-2 py-1 rounded-lg z-20 transition-all shadow-md">🔍 Expandir</button>
-                      <iframe src="${fileURL}" class="w-full h-full border-none"></iframe>
-                    </div>`;
+        
+        if (isMobileDevice()) {
+          bodyHtml = `<div class="p-4 text-center bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-center items-center gap-3">
+                        <span class="text-3xl">📄</span>
+                        <p class="text-xs text-slate-600 dark:text-slate-300 font-medium">Visualização em iframe indisponível no Mobile</p>
+                        <a href="${fileURL}" target="_blank" class="bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-xl shadow text-xs transition-all">
+                          Abrir / Baixar PDF ↗
+                        </a>
+                      </div>`;
+        } else {
+          bodyHtml = `<div class="w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden relative group">
+                        <button onclick="openModal('${escapeHTML(file.name)}', '<iframe src=\\'${fileURL}\\' class=\\'w-full h-[75vh] border-none\\'></iframe>')" class="absolute top-2 right-2 bg-slate-800 dark:bg-slate-900 text-white text-xs px-2 py-1 rounded-lg z-20 transition-all shadow-md">🔍 Expandir</button>
+                        <iframe src="${fileURL}" class="w-full h-full border-none"></iframe>
+                      </div>`;
+        }
         createCard(extension, file.name, bodyHtml, 360);
       }
       else {
@@ -390,9 +413,9 @@
       }
     }
 
-    function createCard(fileType, filename, bodyContent, customWidth = 280, savedProps = null) {
+    function createCard(fileType, filename, bodyContent, customWidth = 280, savedProps = null, explicitCoords = null) {
       const card = document.createElement('div');
-      card.className = `codex-card absolute bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg dark:shadow-2xl z-10 hover:border-slate-400 dark:hover:border-slate-600 overflow-hidden flex flex-col transform-none touch-none`;
+      card.className = `codex-card absolute bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-lg dark:shadow-2xl z-10 hover:border-slate-400 dark:hover:border-slate-600 overflow-hidden flex flex-col transform-none`;
       
       card.dataset.filetype = fileType;
       card.dataset.filename = filename;
@@ -405,9 +428,14 @@
         card.style.height = savedProps.height;
         card.style.left = savedProps.left;
         card.style.top = savedProps.top;
-      } else {
+      } else if (explicitCoords) {
         card.style.width = `${finalWidth}px`;
         card.style.height = `${finalHeight}px`;
+        card.style.left = explicitCoords.left;
+        card.style.top = explicitCoords.top;
+      } else {
+        card.style.width = `${finalWidth}px`;
+        card.style.height = `${finalHeight}px`
         
         const totalCards = document.querySelectorAll('.codex-card').length;
         const spacingX = 24; 
@@ -417,7 +445,7 @@
         const col = totalCards % cardsPerLine;
         const row = Math.floor(totalCards / cardsPerLine);
         
-        const startX = Math.abs(panX) + 320 + col * (finalWidth + spacingX);
+        const startX = Math.abs(panX) + (isMobileDevice() ? 40 : 320) + col * (finalWidth + spacingX);
         const startY = Math.abs(panY) + 60 + row * (finalHeight + spacingY);
         
         card.style.left = `${startX}px`;
@@ -428,7 +456,7 @@
       card.style.minHeight = `140px`;
 
       card.innerHTML = `
-        <div class="card-header px-4 py-3 border-b border-slate-100 dark:border-slate-800/60 flex justify-between items-center font-bold text-xs rounded-t-2xl select-none shrink-0 cursor-move">
+        <div class="card-header px-4 py-3 border-b border-slate-100 dark:border-slate-800/60 flex justify-between items-center font-bold text-xs rounded-t-2xl select-none shrink-0 cursor-move bg-slate-50/50 dark:bg-slate-950/20">
           <div class="flex items-center gap-2 truncate max-w-[85%] pointer-events-none">
             <span class="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] tracking-wide uppercase shrink-0">${fileType}</span>
             <span class="text-slate-400 dark:text-slate-500 truncate" title="${filename}">${filename}</span>
@@ -460,6 +488,7 @@
         .draggable({
           allowFrom: '.card-header',
           inertia: false,
+          get pointerEvents () { return 'none' },
           modifiers: [
             interact.modifiers.restrictRect({
               restriction: 'parent',
@@ -513,7 +542,6 @@
     function salvarEstadoNoStorage() {
       const cardsData = [];
       document.querySelectorAll('.codex-card').forEach(card => {
-        // Captura o input atual de link caso exista para garantir sincronia do value
         const inputTag = card.querySelector('input[type="text"]');
         if(inputTag) {
           inputTag.setAttribute('value', inputTag.value);
@@ -582,13 +610,10 @@
       if (e.target === this) closeModal();
     });
 
-    // --- CORREÇÃO DO PONTEIRO MOUSE UP GLOBAL ---
     window.addEventListener('mouseup', (e) => {
-      // Interrompe imediatamente o pan geral do quadro
       isPanning = false;
       document.body.classList.remove('dragging-active');
       
-      // Encerra qualquer trava de arrasto pendente do InteractJS
       if (typeof interact !== 'undefined' && interact.currentInteractions) {
         interact.currentInteractions.forEach(interaction => {
           if (interaction.interacting()) {
@@ -598,14 +623,16 @@
       }
     });
 
-    // --- CAPTURA DO EVENTO GLOBAL DE COLAR (PASTE) ---
+    window.addEventListener('touchend', (e) => {
+      isPanning = false;
+      document.body.classList.remove('dragging-active');
+    });
+
     window.addEventListener('paste', async (e) => {
-      // Se o usuário estiver focando e digitando em algum campo de texto interno, desliga o colar global
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
       const pastedText = (e.clipboardData || window.clipboardData).getData('text').trim();
 
-      // Se o conteúdo da área de transferência for uma URL válida, gera o card na ponta do mouse
       if (pastedText.startsWith('http://') || pastedText.startsWith('https://')) {
         e.preventDefault();
         
@@ -622,16 +649,10 @@
           </div>
         `;
 
-        createCard('LINK', hostname, bodyHtml, 280);
-        
-        // Alinha o card gerado na exata coordenada atual do mouse dentro do canvas
-        const cards = document.querySelectorAll('.codex-card');
-        const lastCard = cards[cards.length - 1];
-        if (lastCard) {
-          lastCard.style.left = `${mouseXCanvas - 20}px`;
-          lastCard.style.top = `${mouseYCanvas - 20}px`;
-          salvarEstadoNoStorage();
-        }
+        const targetX = mouseXCanvas > 0 ? mouseXCanvas - 20 : Math.abs(panX) + 100;
+        const targetY = mouseYCanvas > 0 ? mouseYCanvas - 20 : Math.abs(panY) + 100;
+
+        createCard('LINK', hostname, bodyHtml, 280, null, { left: `${targetX}px`, top: `${targetY}px` });
       }
     });
 
