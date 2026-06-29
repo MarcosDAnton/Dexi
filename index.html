@@ -130,9 +130,11 @@
         <strong class="text-slate-700 dark:text-slate-200">Como usar:</strong><br>
         1. Clique/toque no fundo vazio e arraste para se movimentar pelo quadro em qualquer direção;<br>
         <br>
-        2. Arraste arquivos diretamente para a grade para criar novos cards;<br>
+        2. Arraste arquivos ou links direto para a grade para criar novos cards;<br>
         <br>
-        3. Use a barra para "Sincronizar" pastas e arquivos no quadro em cards ou "Limpar" para apagar o quadro;
+        3. Pressione Ctrl+V apontando o mouse no fundo para colar um link copiado;<br>
+        <br>
+        4. Use a barra para "Sincronizar" pastas e "Limpar" para apagar o quadro;
       </div>
     </aside>
 
@@ -166,12 +168,20 @@
     let startX = 0, startY = 0;
     let panX = 0, panY = 0;
 
+    // --- VARIÁVEIS DE RASTREAMENTO DO MOUSE ---
+    let mouseXCanvas = 0;
+    let mouseYCanvas = 0;
+
     function startPan(e) {
-      if (e.target.closest('.codex-card') || e.target.closest('aside') || e.target.closest('button')) return;
+      // Bloqueio rigoroso de pan se a origem for em cards, botões ou componentes interativos
+      if (e.target.closest('.codex-card') || e.target.closest('aside') || e.target.closest('button') || e.target.closest('input') || e.target.closest('a')) {
+        isPanning = false;
+        return;
+      }
       
       isPanning = true;
-      const pageX = e.pageX || e.touches[0].pageX;
-      const pageY = e.pageY || e.touches[0].pageY;
+      const pageX = e.pageX || (e.touches ? e.touches[0].pageX : e.clientX);
+      const pageY = e.pageY || (e.touches ? e.touches[0].pageY : e.clientY);
       
       startX = pageX - panX;
       startY = pageY - panY;
@@ -207,6 +217,13 @@
     boardWrapper.addEventListener('touchstart', startPan, { passive: false });
     window.addEventListener('touchmove', doPan, { passive: false });
     window.addEventListener('touchend', endPan);
+
+    // Monitora a posição exata do ponteiro dentro do quadro virtual móbile
+    window.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      mouseXCanvas = e.clientX - rect.left;
+      mouseYCanvas = e.clientY - rect.top;
+    });
 
 
     // --- CONTROLE DE EXIBIÇÃO DO MENU LATERAL ---
@@ -253,7 +270,7 @@
       }
     }
 
-    // --- DRAG & DROP DE ARQUIVOS EXTERNOS ---
+    // --- DRAG & DROP DE ARQUIVOS E LINKS EXTERNOS ---
     const dropZone = boardWrapper;
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
       dropZone.addEventListener(eventName, e => e.preventDefault(), false);
@@ -269,12 +286,45 @@
 
     dropZone.addEventListener('drop', (e) => {
       dropZone.classList.remove('bg-slate-200/40', 'dark:bg-slate-800/40');
+      
+      // Captura links de internet arrastados (URLs)
+      const linkData = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+      if (linkData && (linkData.startsWith('http://') || linkData.startsWith('https://'))) {
+        processLinkCard(linkData);
+        return;
+      }
+
+      // Captura arquivos locais
       const files = e.dataTransfer.files;
       if (files.length > 0) {
         Array.from(files).forEach(file => processAndCreateCard(file));
       }
     });
 
+    // Função para criar card de Links com Tag/Nome persistente
+    function processLinkCard(url, savedTag = '') {
+      let hostname = 'Link';
+      try { hostname = new URL(url).hostname; } catch(e) {}
+      
+      const bodyHtml = `
+        <div class="p-4 text-center bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-between items-center gap-2">
+          <input type="text" value="${escapeHTML(savedTag)}" placeholder="Dar um nome/tag..." oninput="atualizarTagLink(this)" class="w-full text-xs font-medium px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:border-amber-500 text-slate-700 dark:text-slate-200 select-text">
+          <p class="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate w-full px-1" title="${url}">${url}</p>
+          <a href="${url}" target="_blank" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-xl shadow text-xs transition-all flex items-center justify-center gap-1">
+            Visitar Link ↗
+          </a>
+        </div>
+      `;
+      createCard('LINK', hostname, bodyHtml, 280);
+    }
+
+    // Atualiza o estado no Storage quando o usuário digita no input do Link
+    function atualizarTagLink(inputElement) {
+      inputElement.setAttribute('value', inputElement.value);
+      salvarEstadoNoStorage();
+    }
+
+    // Processamento de arquivos atualizado para Áudio, Vídeo, Imagem e PDF blob seguro
     async function processAndCreateCard(file) {
       const fileNameLower = file.name.toLowerCase();
       const extension = file.name.includes('.') ? file.name.split('.').pop().toUpperCase() : 'ARQUIVO';
@@ -297,18 +347,38 @@
         });
         createCard(extension, file.name, bodyHtml, 320);
       }
-      else if (fileNameLower.endsWith('.pdf')) {
+      else if (/\.(mp4|webm|ogg|mov)$/i.test(fileNameLower)) {
         bodyHtml = await new Promise((resolve) => {
           const reader = new FileReader();
           reader.onload = (e) => {
-            const fileURL = e.target.result;
-            resolve(`<div class="w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden relative group">
-                      <button onclick="openModal('${file.name}', '<iframe src=\\'${fileURL}\\' class=\\'w-full h-[75vh] border-none\\'></iframe>')" class="absolute top-2 right-2 bg-slate-800 dark:bg-slate-900 text-white text-xs px-2 py-1 rounded-lg z-20 transition-all shadow-md">🔍 Expandir</button>
-                      <iframe src="${fileURL}" class="w-full h-full border-none"></iframe>
-                    </div>`);
+            resolve(`<div class="w-full h-full bg-slate-950 flex items-center justify-center">
+                        <video src="${e.target.result}" controls class="w-full h-full object-contain pointer-events-auto"></video>
+                      </div>`);
           };
           reader.readAsDataURL(file);
         });
+        createCard(extension, file.name, bodyHtml, 360);
+      }
+      else if (/\.(mp3|wav|ogg|m4a|flac)$/i.test(fileNameLower)) {
+        bodyHtml = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            resolve(`<div class="p-4 bg-slate-50 dark:bg-slate-950 h-full flex flex-col justify-center items-center gap-2">
+                        <span class="text-[2rem]">🎵</span>
+                        <audio src="${e.target.result}" controls class="w-full pointer-events-auto"></audio>
+                      </div>`);
+          };
+          reader.readAsDataURL(file);
+        });
+        createCard(extension, file.name, bodyHtml, 300);
+      }
+      else if (fileNameLower.endsWith('.pdf')) {
+        // Solução PDF: Cria um ObjectURL temporário da memória em vez de String Base64 pesada
+        const fileURL = URL.createObjectURL(file);
+        bodyHtml = `<div class="w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden relative group">
+                      <button onclick="openModal('${escapeHTML(file.name)}', '<iframe src=\\'${fileURL}\\' class=\\'w-full h-[75vh] border-none\\'></iframe>')" class="absolute top-2 right-2 bg-slate-800 dark:bg-slate-900 text-white text-xs px-2 py-1 rounded-lg z-20 transition-all shadow-md">🔍 Expandir</button>
+                      <iframe src="${fileURL}" class="w-full h-full border-none"></iframe>
+                    </div>`;
         createCard(extension, file.name, bodyHtml, 360);
       }
       else {
@@ -443,6 +513,12 @@
     function salvarEstadoNoStorage() {
       const cardsData = [];
       document.querySelectorAll('.codex-card').forEach(card => {
+        // Captura o input atual de link caso exista para garantir sincronia do value
+        const inputTag = card.querySelector('input[type="text"]');
+        if(inputTag) {
+          inputTag.setAttribute('value', inputTag.value);
+        }
+
         cardsData.push({
           filetype: card.dataset.filetype,
           filename: card.dataset.filename,
@@ -508,16 +584,54 @@
 
     // --- CORREÇÃO DO PONTEIRO MOUSE UP GLOBAL ---
     window.addEventListener('mouseup', (e) => {
-      interact.pointerMoveTolerance = 1;
+      // Interrompe imediatamente o pan geral do quadro
+      isPanning = false;
       document.body.classList.remove('dragging-active');
       
-      const activeInteractions = interact.currentInteractions;
-      if (activeInteractions && activeInteractions.length > 0) {
-        activeInteractions.forEach(interaction => {
+      // Encerra qualquer trava de arrasto pendente do InteractJS
+      if (typeof interact !== 'undefined' && interact.currentInteractions) {
+        interact.currentInteractions.forEach(interaction => {
           if (interaction.interacting()) {
             interaction.end();
           }
         });
+      }
+    });
+
+    // --- CAPTURA DO EVENTO GLOBAL DE COLAR (PASTE) ---
+    window.addEventListener('paste', async (e) => {
+      // Se o usuário estiver focando e digitando em algum campo de texto interno, desliga o colar global
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+      const pastedText = (e.clipboardData || window.clipboardData).getData('text').trim();
+
+      // Se o conteúdo da área de transferência for uma URL válida, gera o card na ponta do mouse
+      if (pastedText.startsWith('http://') || pastedText.startsWith('https://')) {
+        e.preventDefault();
+        
+        let hostname = 'Link';
+        try { hostname = new URL(pastedText).hostname; } catch(err) {}
+
+        const bodyHtml = `
+          <div class="p-4 text-center bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-between items-center gap-2">
+            <input type="text" value="" placeholder="Dar um nome/tag..." oninput="atualizarTagLink(this)" class="w-full text-xs font-medium px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 focus:outline-none focus:border-amber-500 text-slate-700 dark:text-slate-200 select-text">
+            <p class="text-[10px] text-slate-400 dark:text-slate-500 font-mono truncate w-full px-1" title="${pastedText}">${pastedText}</p>
+            <a href="${pastedText}" target="_blank" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 rounded-xl shadow text-xs transition-all flex items-center justify-center gap-1">
+              Visitar Link ↗
+            </a>
+          </div>
+        `;
+
+        createCard('LINK', hostname, bodyHtml, 280);
+        
+        // Alinha o card gerado na exata coordenada atual do mouse dentro do canvas
+        const cards = document.querySelectorAll('.codex-card');
+        const lastCard = cards[cards.length - 1];
+        if (lastCard) {
+          lastCard.style.left = `${mouseXCanvas - 20}px`;
+          lastCard.style.top = `${mouseYCanvas - 20}px`;
+          salvarEstadoNoStorage();
+        }
       }
     });
 
