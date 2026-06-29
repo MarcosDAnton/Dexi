@@ -7,6 +7,7 @@
   <meta name="description" content="Codex de conhecimentos intuitivos, linguísticos e científicos.">
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/interactjs/dist/interact.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -26,6 +27,8 @@
         }
       }
     }
+    // Configura o worker do PDF.js
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
   </script>
 
   <style>
@@ -63,9 +66,6 @@
       -webkit-user-select: none;
       touch-action: none;
     }
-    .dragging-active iframe {
-      pointer-events: none !important;
-    }
     aside {
       transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
@@ -87,6 +87,14 @@
       width: 5000px;  
       height: 5000px;
       transform-origin: 0 0;
+    }
+    .pdf-canvas-container {
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
     }
   </style>
 </head>
@@ -121,7 +129,7 @@
             Sincronizar
           </button>
           <button onclick="colarLinkManual()" class="w-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-bold py-2.5 px-4 rounded-xl shadow border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center gap-2 text-sm">
-            Colar
+            📋 Colar Link
           </button>
         </div>
 
@@ -169,7 +177,6 @@
     const canvasContainer = document.getElementById('canvas-container');
     let localizedFiles = [];
 
-    // --- VARIÁVEIS DO MECANISMO DE PAN ---
     let isPanning = false;
     let startX = 0, startY = 0;
     let panX = 0, panY = 0;
@@ -177,7 +184,7 @@
     let mouseXCanvas = 200;
     let mouseYCanvas = 200;
 
-    // --- INICIALIZAÇÃO DO INDEXEDDB PARA PERSISTÊNCIA DE PDFs ---
+    // --- INICIALIZAÇÃO DO INDEXEDDB ---
     let db;
     const dbRequest = indexedDB.open("DexiDatabase", 1);
     dbRequest.onupgradeneeded = (e) => {
@@ -186,7 +193,10 @@
         db.createObjectStore("pdfs");
       }
     };
-    dbRequest.onsuccess = (e) => { db = e.target.result; };
+    dbRequest.onsuccess = (e) => { 
+      db = e.target.result; 
+      carregarEstadoDoStorage();
+    };
     dbRequest.onerror = (e) => { console.error("Erro ao abrir IndexedDB", e); };
 
     function guardarPdfNoDb(id, blob) {
@@ -202,7 +212,7 @@
     }
 
     function startPan(e) {
-      if (e.target.closest('.codex-card') || e.target.closest('aside') || e.target.closest('button') || e.target.closest('input') || e.target.closest('a')) {
+      if (e.target.closest('.codex-card') || e.target.closest('aside') || e.target.closest('button') || e.target.closest('input') || e.target.closest('a') || e.target.closest('canvas')) {
         isPanning = false;
         return;
       }
@@ -367,18 +377,16 @@
         createCard(extension, file.name, bodyHtml, 300);
       }
       else if (fileNameLower.endsWith('.pdf')) {
-        // Gera id único estrátegico para gerenciar no IndexedDB
         const pdfId = "pdf_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
         guardarPdfNoDb(pdfId, file);
 
         bodyHtml = `<div class="w-full h-full bg-slate-100 dark:bg-slate-950 overflow-hidden relative" data-pdfid="${pdfId}">
-                      <button onclick="expandirPdf('${pdfId}', '${escapeHTML(file.name)}')" class="absolute top-2 right-2 bg-slate-800 dark:bg-slate-900 text-white text-xs px-2 py-1 rounded-lg z-20 transition-all shadow-md">🔍 Expandir</button>
-                      <iframe src="" class="w-full h-full border-none pdf-renderer"></iframe>
+                      <button onclick="expandirPdf('${pdfId}', '${escapeHTML(file.name)}')" class="absolute top-2 right-2 bg-slate-800/80 dark:bg-slate-900/80 text-white text-[10px] px-2 py-1 rounded-lg z-20 transition-all shadow-md">🔍 Expandir</button>
+                      <div class="pdf-canvas-container"><canvas class="pdf-render-canvas"></canvas></div>
                     </div>`;
         createCard(extension, file.name, bodyHtml, 360);
         
-        // Carrega imediatamente o blob recém-criado
-        setTimeout(() => carregarIframePdfPorId(pdfId), 100);
+        setTimeout(() => renderizarPdfPorId(pdfId), 150);
       }
       else {
         bodyHtml = `<div class="p-5 text-center bg-slate-50 dark:bg-slate-950/40 h-full flex flex-col justify-center items-center">
@@ -389,37 +397,51 @@
       }
     }
 
-    // Função que recupera do IndexedDB e monta o link válido em tempo de execução
-    function carregarIframePdfPorId(id) {
-      if(!db) {
-        setTimeout(() => carregarIframePdfPorId(id), 200);
-        return;
-      }
+    // Método Robusto com PDF.js usando Canvas (Aceito nativamente em qualquer Tablet/iPad)
+    function renderizarPdfPorId(id, targetCanvasElement = null) {
+      if(!db) return;
       const transaction = db.transaction(["pdfs"], "readonly");
       const request = transaction.objectStore(["pdfs"]).get(id);
+      
       request.onsuccess = (e) => {
         const blob = e.target.result;
-        if(blob) {
-          const tempUrl = URL.createObjectURL(blob);
-          const container = document.querySelector(`[data-pdfid="${id}"]`);
-          if(container) {
-            const iframe = container.querySelector('.pdf-renderer');
-            if(iframe) iframe.src = tempUrl;
-          }
-        }
+        if(!blob) return;
+
+        const fileReader = new FileReader();
+        fileReader.onload = function() {
+          const typedarray = new Uint8Array(this.result);
+          
+          pdfjsLib.getDocument(typedarray).promise.then(pdf => {
+            // Renderiza sempre a primeira página no card preview
+            pdf.getPage(1).then(page => {
+              const container = document.querySelector(`[data-pdfid="${id}"]`);
+              const canvasEl = targetCanvasElement || (container ? container.querySelector('.pdf-render-canvas') : null);
+              if (!canvasEl) return;
+
+              const context = canvasEl.getContext('2d');
+              const viewport = page.getViewport({ scale: 1.2 });
+              
+              canvasEl.height = viewport.height;
+              canvasEl.width = viewport.width;
+
+              const renderContext = {
+                canvasContext: context,
+                viewport: viewport
+              };
+              page.render(renderContext);
+            });
+          }).catch(err => console.error("Erro no PDF.js:", err));
+        };
+        fileReader.readAsArrayBuffer(blob);
       };
     }
 
     function expandirPdf(id, filename) {
-      const transaction = db.transaction(["pdfs"], "readonly");
-      const request = transaction.objectStore(["pdfs"]).get(id);
-      request.onsuccess = (e) => {
-        const blob = e.target.result;
-        if(blob) {
-          const tempUrl = URL.createObjectURL(blob);
-          openModal(filename, `<iframe src="${tempUrl}" class="w-full h-[75vh] border-none"></iframe>`);
-        }
-      };
+      openModal(filename, `<div class="w-full flex justify-center bg-slate-900 rounded-xl p-2 overflow-auto" style="height: 75vh;"><canvas id="modal-pdf-canvas" class="max-w-full"></canvas></div>`);
+      setTimeout(() => {
+        const modalCanvas = document.getElementById('modal-pdf-canvas');
+        if(modalCanvas) renderizarPdfPorId(id, modalCanvas);
+      }, 100);
     }
 
     function createCard(fileType, filename, bodyContent, customWidth = 280, savedProps = null) {
@@ -594,9 +616,9 @@
           });
         });
         
-        // Re-hidrata os iframes de PDF buscando os arquivos mantidos no IndexedDB
+        // Renderiza os PDFs salvos usando a engine do PDF.js
         document.querySelectorAll('[data-pdfid]').forEach(container => {
-          carregarIframePdfPorId(container.dataset.pdfid);
+          renderizarPdfPorId(container.dataset.pdfid);
         });
       } catch (e) {
         console.error("Erro ao carregar dados", e);
@@ -648,12 +670,6 @@
       const pastedText = (e.clipboardData || window.clipboardData).getData('text').trim();
       tratarLinkColado(pastedText);
     });
-
-    // Garante sincronia estrutural com o banco de dados antes do carregamento visual
-    dbRequest.onsuccess = (e) => { 
-      db = e.target.result; 
-      carregarEstadoDoStorage();
-    };
   </script>
 </body>
 </html>
