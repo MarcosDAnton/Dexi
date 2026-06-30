@@ -110,7 +110,7 @@
 <body
   class="bg-[#f8f7f4] dark:bg-[#0f172a] text-[#1e293b] dark:text-[#f8f7f4] min-h-screen overflow-hidden font-sans transition-colors duration-200 relative">
 
-  <input type="file" id="folder-selector" webkitdirectory directory multiple class="hidden"
+  <input type="file" id="folder-selector" multiple class="hidden"
     onchange="handleFolderSelection(this.files)">
 
   <button id="trigger-left" onclick="toggleMenu(true)"
@@ -328,9 +328,15 @@
     async function handleFolderSelection(files) {
       localizedFiles = Array.from(files);
       if (localizedFiles.length === 0) return;
+      
       for (const file of localizedFiles) {
-        await processAndCreateCard(file);
+        // Ignora estruturas vazias que navegadores geram ao tentar ler pastas sem arquivos internos
+        if (file.size > 0 || file.type !== "") {
+          await processAndCreateCard(file);
+        }
       }
+      // Limpa o valor para permitir a re-seleção consecutiva dos mesmos arquivos
+      document.getElementById('folder-selector').value = '';
     }
 
     const dropZone = boardWrapper;
