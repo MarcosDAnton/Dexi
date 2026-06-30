@@ -211,11 +211,14 @@
 
     // --- INICIALIZAÇÃO DO INDEXEDDB ---
     let db;
-    const dbRequest = indexedDB.open("DexiDatabase", 1);
+    const dbRequest = indexedDB.open("DexiDatabase", 2);
     dbRequest.onupgradeneeded = (e) => {
       db = e.target.result;
       if (!db.objectStoreNames.contains("pdfs")) {
         db.createObjectStore("pdfs");
+      }
+      if (!db.objectStoreNames.contains("media")) {
+        db.createObjectStore("media");
       }
     };
     dbRequest.onsuccess = (e) => {
@@ -234,6 +237,18 @@
       if (!db) return;
       const transaction = db.transaction(["pdfs"], "readwrite");
       transaction.objectStore(["pdfs"]).delete(id);
+    }
+
+    function guardarMediaNoDb(id, blob) {
+      if (!db) return;
+      const transaction = db.transaction(["media"], "readwrite");
+      transaction.objectStore(["media"]).put(blob, id);
+    }
+
+    function removerMediaDoDb(id) {
+      if (!db) return;
+      const transaction = db.transaction(["media"], "readwrite");
+      transaction.objectStore(["media"]).delete(id);
     }
 
     function startPan(e) {
@@ -377,15 +392,13 @@
         createCard(extension, file.name, bodyHtml, 320);
       }
       else if (/\.(mp4|webm|ogg|mov)$/i.test(fileNameLower)) {
-        bodyHtml = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => {
-            resolve(`<div class="w-full h-full bg-slate-950 flex items-center justify-center">
-                        <video src="${e.target.result}" controls class="w-full h-full object-contain pointer-events-auto"></video>
-                      </div>`);
-          };
-          reader.readAsDataURL(file);
-        });
+        const mediaId = "video_" + Date.now() + "_" + Math.floor(Math.random() * 1000);
+        guardarMediaNoDb(mediaId, file);
+        
+        const videoUrl = URL.createObjectURL(file);
+        bodyHtml = `<div class="w-full h-full bg-slate-950 flex items-center justify-center" data-mediasourceid="${mediaId}">
+                      <video src="${videoUrl}" controls class="w-full h-full object-contain pointer-events-auto"></video>
+                    </div>`;
         createCard(extension, file.name, bodyHtml, 360);
       }
       else if (/\.(mp3|wav|ogg|m4a|flac)$/i.test(fileNameLower)) {
@@ -451,7 +464,6 @@
         };
       }
 
-      // MODIFICADO: Passando apenas 'PDF' como tag identificadora
       createCard('PDF', filename, readerContentHtml, customWidth, props);
 
       setTimeout(() => {
@@ -602,6 +614,12 @@
         if (viewerEl && viewerEl.dataset.pdfsourceid) {
           removerPdfDoDb(viewerEl.dataset.pdfsourceid);
         }
+        
+        const videoEl = card.querySelector('[data-mediasourceid]');
+        if (videoEl && videoEl.dataset.mediasourceid) {
+          removerMediaDoDb(videoEl.dataset.mediasourceid);
+        }
+
         card.remove();
         salvarEstadoNoStorage();
       }
@@ -691,11 +709,17 @@
         if (inputTag) inputTag.setAttribute('value', inputTag.value);
 
         const viewerEl = card.querySelector('[data-viewerid]');
+        const videoEl = card.querySelector('[data-mediasourceid]');
         let savedCurrentPage = 1;
         let savedPdfSourceId = "";
+        let savedMediaSourceId = "";
+
         if (viewerEl) {
           savedCurrentPage = parseInt(viewerEl.dataset.currentPage) || 1;
           savedPdfSourceId = viewerEl.dataset.pdfsourceid || "";
+        }
+        if (videoEl) {
+          savedMediaSourceId = videoEl.dataset.mediasourceid || "";
         }
 
         cardsData.push({
@@ -707,7 +731,8 @@
           top: card.style.top,
           currentPage: savedCurrentPage,
           pdfSourceId: savedPdfSourceId,
-          bodyContent: viewerEl ? "" : card.querySelector('.card-body-holder').innerHTML 
+          mediaSourceId: savedMediaSourceId,
+          bodyContent: (viewerEl || videoEl) ? "" : card.querySelector('.card-body-holder').innerHTML 
         });
       });
       localStorage.setItem('dexi_codex_cards', JSON.stringify(cardsData));
@@ -722,11 +747,24 @@
       try {
         const cardsData = JSON.parse(rawData);
         cardsData.forEach(c => {
-          // MODIFICADO: Verificando se é 'PDF' para carregar dinamicamente com a página correspondente
           if ((c.filetype === 'PDF' || c.filetype === 'LEITOR PDF') && c.pdfSourceId) {
             montarEGerarLeitorPdf(c.pdfSourceId, c.filename, c.currentPage, {
               width: c.width, height: c.height, left: c.left, top: c.top
             });
+          } else if (c.mediaSourceId) {
+            const transaction = db.transaction(["media"], "readonly");
+            const request = transaction.objectStore(["media"]).get(c.mediaSourceId);
+            request.onsuccess = (e) => {
+              const blob = e.target.result;
+              if (!blob) return;
+              const videoUrl = URL.createObjectURL(blob);
+              const bodyHtml = `<div class="w-full h-full bg-slate-950 flex items-center justify-center" data-mediasourceid="${c.mediaSourceId}">
+                                  <video src="${videoUrl}" controls class="w-full h-full object-contain pointer-events-auto"></video>
+                                </div>`;
+              createCard(c.filetype, c.filename, bodyHtml, 360, {
+                width: c.width, height: c.height, left: c.left, top: c.top
+              });
+            };
           } else {
             createCard(c.filetype, c.filename, c.bodyContent, 280, {
               width: c.width, height: c.height, left: c.left, top: c.top
@@ -744,6 +782,9 @@
       if (db) {
         const transaction = db.transaction(["pdfs"], "readwrite");
         transaction.objectStore(["pdfs"]).clear();
+        
+        const mediaTransaction = db.transaction(["media"], "readwrite");
+        mediaTransaction.objectStore(["media"]).clear();
       }
     }
 
