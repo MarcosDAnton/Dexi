@@ -330,12 +330,10 @@
       if (localizedFiles.length === 0) return;
       
       for (const file of localizedFiles) {
-        // Ignora estruturas vazias que navegadores geram ao tentar ler pastas sem arquivos internos
         if (file.size > 0 || file.type !== "") {
           await processAndCreateCard(file);
         }
       }
-      // Limpa o valor para permitir a re-seleção consecutiva dos mesmos arquivos
       document.getElementById('folder-selector').value = '';
     }
 
@@ -467,7 +465,7 @@
           height: `550px`,
           left: `${targetLeft}px`,
           top: `${targetTop}px`
-        };
+         };
       }
 
       createCard('PDF', filename, readerContentHtml, customWidth, props);
@@ -505,11 +503,22 @@
               
               const cardBodyWidth = canvasEl.parentElement.clientWidth || 400;
               const unscaledViewport = page.getViewport({ scale: 1.0 });
-              const scale = (cardBodyWidth - 20) / unscaledViewport.width;
-              const viewport = page.getViewport({ scale: scale > 1.5 ? 1.5 : scale });
+              
+              let scale = (cardBodyWidth - 20) / unscaledViewport.width;
+              if (scale > 2.0) scale = 2.0; 
 
-              canvasEl.height = viewport.height;
-              canvasEl.width = viewport.width;
+              const viewport = page.getViewport({ scale: scale });
+
+              // Aplica o Device Pixel Ratio para telas de alta resolução
+              const dpr = window.devicePixelRatio || 1;
+              
+              canvasEl.width = viewport.width * dpr;
+              canvasEl.height = viewport.height * dpr;
+
+              canvasEl.style.width = `${viewport.width}px`;
+              canvasEl.style.height = `${viewport.height}px`;
+
+              context.setTransform(dpr, 0, 0, dpr, 0, 0);
 
               const renderContext = {
                 canvasContext: context,
